@@ -62,7 +62,10 @@ def load_settings(env: Mapping[str, str]) -> Settings:
             "set SPIDERFOOT_ALLOW_ACTIVE=true to opt in explicitly"
         )
 
-    profile = (env.get("SPIDERFOOT_PROFILE") or "full").strip().lower()
+    # lean was measured faster at identical imported objects (SPEC-fast-scan-profile, Deviations);
+    # it only exists for the passive use case, so any other use case keeps the full module set.
+    default_profile = "lean" if usecase == PASSIVE_USECASE else "full"
+    profile = (env.get("SPIDERFOOT_PROFILE") or default_profile).strip().lower()
     if profile not in PROFILES:
         raise ConfigError(f"SPIDERFOOT_PROFILE must be one of {list(PROFILES)}, got {profile!r}")
     if profile == "lean" and usecase != PASSIVE_USECASE:

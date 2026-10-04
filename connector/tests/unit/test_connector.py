@@ -10,7 +10,11 @@ from spiderfoot_connector.connector import SpiderFootEnrichment, TargetNotAllowe
 
 EVENTS = json.loads((Path(__file__).parent.parent / "fixtures" / "scan_events.json").read_text())
 SETTINGS = load_settings(
-    {"SPIDERFOOT_URL": "http://sf:5001", "SPIDERFOOT_ALLOWED_DOMAINS": "example.com"}
+    {
+        "SPIDERFOOT_URL": "http://sf:5001",
+        "SPIDERFOOT_ALLOWED_DOMAINS": "example.com",
+        "SPIDERFOOT_PROFILE": "full",
+    }
 )
 
 

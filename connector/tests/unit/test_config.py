@@ -85,8 +85,17 @@ def test_expansion_bounds_enforced(key, value):
         load_settings({**BASE, key: value})
 
 
-def test_profile_defaults_to_full():
-    assert load_settings(BASE).profile == "full"
+def test_profile_defaults_to_lean_with_passive_usecase():
+    assert load_settings(BASE).profile == "lean"
+
+
+def test_profile_defaults_to_full_when_usecase_is_not_passive():
+    env = {**BASE, "SPIDERFOOT_USECASE": "footprint", "SPIDERFOOT_ALLOW_ACTIVE": "true"}
+    assert load_settings(env).profile == "full"
+
+
+def test_full_profile_can_still_be_selected():
+    assert load_settings({**BASE, "SPIDERFOOT_PROFILE": "full"}).profile == "full"
 
 
 def test_lean_profile_accepted_with_passive():
