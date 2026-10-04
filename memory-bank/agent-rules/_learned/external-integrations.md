@@ -72,3 +72,8 @@ When validating a parser against ground truth, include a subject that actually h
 _derived_from: reflection/fix-cert-and-mail-attribution.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 An attribution or filter rule designed from a single real sample is a hypothesis: ship it behind a count of what it rejects ("N not the target's") and re-check it the first time richer real data arrives, because 100 % rejection is as wrong as 100 % acceptance.
+
+### check-the-end-status-of-the-scan-behind-any-evidence
+_derived_from: reflection/partial-scan-visibility.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+Before using a recorded scan as evidence, check that it finished (status and duration against the timeout); a run cut by the limit looks like a normal result and silently supports wrong conclusions.

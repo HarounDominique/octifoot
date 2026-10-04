@@ -114,6 +114,9 @@ class SpiderFootEnrichment:
                 source_errors=source_errors,
                 subdomain_sources=SUBDOMAIN_SOURCES,
                 dns_facts=dns_facts,
+                scan_status=outcome.status,
+                timeout_seconds=cfg.timeout_seconds,
+                timed_out=outcome.timed_out,
             )
             unmapped.update(mapped.unmapped)
             for obj in mapped.objects:

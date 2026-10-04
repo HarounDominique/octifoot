@@ -192,6 +192,9 @@ def map_events(
     source_errors: Sequence[tuple[str, str]] = (),
     subdomain_sources: frozenset[str] = frozenset(),
     dns_facts: DnsFacts | None = None,
+    scan_status: str = "FINISHED",
+    timeout_seconds: int = 0,
+    timed_out: bool = False,
 ) -> MapResult:
     """Convert SpiderFoot ``scanexportjsonmulti`` rows into STIX objects."""
     result = MapResult()
@@ -451,7 +454,15 @@ def map_events(
     )
 
     summary = _summary(
-        result, objects, scan_id, target, now, source_errors, subdomain_sources, dns_facts
+        result,
+        objects,
+        scan_id,
+        target,
+        now,
+        source_errors,
+        subdomain_sources,
+        dns_facts,
+        _completeness(scan_status, timeout_seconds, timed_out),
     )
     note = stix2.Note(
         id=Note.generate_id(now.isoformat(), summary),
@@ -636,6 +647,18 @@ def _plural(n: int, one: str, many: str) -> str:
     return f"{n} {one if n == 1 else many}"
 
 
+def _completeness(status: str, timeout_seconds: int, timed_out: bool) -> str:
+    """A scan that did not run to the end must say so; the Note is what analysts read."""
+    if timed_out:
+        return (
+            f"scan incomplete: stopped after {timeout_seconds} s, results are partial "
+            "(SPIDERFOOT_TIMEOUT_SECONDS)"
+        )
+    if status != "FINISHED":
+        return f"scan ended {status}, not FINISHED: results may be partial"
+    return ""
+
+
 def _mail_findings(result: MapResult, target: str, dns: DnsFacts | None) -> list[str]:
     """Mail-authentication findings. Direct DNS answers win; without them, fall back to scan events."""
     if dns is not None and dns.mx is not None:
@@ -723,8 +746,11 @@ def _findings_block(
     subdomain_sources: frozenset[str],
     target: str = "",
     dns_facts: DnsFacts | None = None,
+    incomplete: str = "",
 ) -> list[str]:
     items = _findings(result, now, source_errors, subdomain_sources, target, dns_facts)
+    if incomplete:
+        items.insert(0, incomplete)  # it conditions every other finding, so it comes first
     if not items:
         return ["Key findings: nothing notable in the data the answering sources returned."]
     return ["Key findings (as of this scan):", *[f"- {item}" for item in items]]
@@ -791,11 +817,14 @@ def _summary(
     source_errors: Sequence[tuple[str, str]] = (),
     subdomain_sources: frozenset[str] = frozenset(),
     dns_facts: DnsFacts | None = None,
+    incomplete: str = "",
 ) -> str:
     kinds = Counter(o.type for o in objects.values() if o.type.endswith(("-name", "-addr")))
     lines = [
         f"SpiderFoot scan {scan_id} for {target}.",
-        *_findings_block(result, now, source_errors, subdomain_sources, target, dns_facts),
+        *_findings_block(
+            result, now, source_errors, subdomain_sources, target, dns_facts, incomplete
+        ),
         "Mapped: " + (", ".join(f"{k}={v}" for k, v in sorted(kinds.items())) or "nothing"),
     ]
     if result.as_ips:

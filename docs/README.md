@@ -119,6 +119,10 @@ It appears right after the first line; with nothing notable it reads `Key findin
 | Registration expiring | expires within 30 days, or already expired |
 | Shared infrastructure listed | reputation listings on subnets or co-hosts (not the target's own) |
 | Coverage | subdomain-enumerating sources that reported errors, so "no subdomains" may not be true |
+| Scan incomplete | always first: the scan was stopped by `SPIDERFOOT_TIMEOUT_SECONDS` (`scan incomplete: stopped after N s, results are partial`) or ended with a status other than FINISHED |
+
+A scan can be cut by the timeout on domains with many certificates: `sfp_crt` fetches them one by one and every certificate's names flood the other modules (a real scan of 53 certificates ran 15 minutes).
+When that happens the first finding says so; raise `SPIDERFOOT_TIMEOUT_SECONDS` if you want complete scans of such domains.
 
 No object, label or score is derived from findings (a label such as "newly registered" would go stale). Thresholds are constants in `mapper.py`.
 

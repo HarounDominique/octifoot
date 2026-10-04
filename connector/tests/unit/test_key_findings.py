@@ -16,7 +16,7 @@ def ev(etype, data, source="example.com", module="sfp_x"):
     }
 
 
-def run(events, errors=(), target="example.com"):
+def run(events, errors=(), target="example.com", **extra):
     return map_events(
         events,
         target=target,
@@ -25,6 +25,7 @@ def run(events, errors=(), target="example.com"):
         now=NOW,
         source_errors=errors,
         subdomain_sources=SUBDOMAIN_SOURCES,
+        **extra,
     )
 
 
@@ -289,3 +290,35 @@ def test_subdomain_sources_are_real_lean_modules_that_produce_hostnames():
     for name in SUBDOMAIN_SOURCES:
         assert name in lean, name
         assert "INTERNET_NAME" in snapshot[name]["produced"], name
+
+
+# --- an incomplete scan must say so ---
+
+
+def test_a_timed_out_scan_is_the_first_finding_with_the_seconds():
+    got = findings(run([], scan_status="ABORTED", timeout_seconds=900, timed_out=True))[1]
+    assert (
+        got[0]
+        == "scan incomplete: stopped after 900 s, results are partial (SPIDERFOOT_TIMEOUT_SECONDS)"
+    )
+
+
+def test_any_other_unfinished_status_is_reported_without_claiming_a_timeout():
+    got = findings(run([], scan_status="ABORTED"))[1]
+    assert got == ["scan ended ABORTED, not FINISHED: results may be partial"]
+
+
+def test_a_finished_scan_adds_no_finding():
+    assert findings(run([], scan_status="FINISHED"))[1] == []
+    assert findings(run([]))[1] == []  # callers that do not pass a status are unchanged
+
+
+def test_a_partial_scan_never_reads_as_nothing_notable():
+    head, items = findings(run([], scan_status="RUNNING", timed_out=True, timeout_seconds=60))
+    assert head == "Key findings (as of this scan):" and len(items) == 1
+
+
+def test_partial_comes_before_every_other_finding():
+    events = [ev("DOMAIN_WHOIS", WHOIS.format(c="2026-09-27", e="2027-09-27"))]
+    got = findings(run(events, scan_status="ABORTED", timed_out=True, timeout_seconds=900))[1]
+    assert got[0].startswith("scan incomplete") and got[1].startswith("registered")

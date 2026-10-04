@@ -180,3 +180,20 @@ def test_no_dns_check_configured_means_no_dns_line(helper):
     enrichment, _ = make(helper)
     enrichment.process_message(message())
     assert not any("DNS checks (queried" in t for t in note_texts(helper))
+
+
+# --- an incomplete scan says so in its Note ---
+
+
+def test_timeout_is_stated_in_the_note_not_only_in_the_work_message(helper):
+    enrichment, client = make(helper, ScanOutcome("ABC123", "ABORTED", EVENTS[:2], timed_out=True))
+    client.fetch_errors.return_value = []
+    result = enrichment.process_message(message())
+    assert "partial" in result.lower()
+    assert any("scan incomplete: stopped after 900 s" in t for t in note_texts(helper))
+
+
+def test_a_finished_scan_has_no_incomplete_line(helper):
+    enrichment, _ = make(helper)
+    enrichment.process_message(message())
+    assert not any("scan incomplete" in t or "not FINISHED" in t for t in note_texts(helper))
