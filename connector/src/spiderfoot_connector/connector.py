@@ -26,7 +26,9 @@ from spiderfoot_connector.dnschecks import DnsFacts, check_domain
 from spiderfoot_connector.expansion import plan_next
 from spiderfoot_connector.knowledge import Known, query_known, render_knowledge
 from spiderfoot_connector.mapper import map_events
+from spiderfoot_connector.panel import PanelServer
 from spiderfoot_connector.profiles import SUBDOMAIN_SOURCES, lean_modules_with, load_snapshot
+from spiderfoot_connector.runtime import RuntimeStore
 from spiderfoot_connector.watch import Watcher, ask_enrichment, query_watched, snapshot_time
 
 SUPPORTED_ENTITY = "Domain-Name"
@@ -46,6 +48,7 @@ class SpiderFootEnrichment:
         knowledge_lookup: Callable[[list[str]], list[Known]] | None = None,
         snapshot_lookup: Callable[[str], Snapshot | None] | None = None,
         key_ring: KeyRing | None = None,
+        runtime: RuntimeStore | None = None,
     ) -> None:
         self._helper = helper
         self._settings = settings
@@ -54,6 +57,7 @@ class SpiderFootEnrichment:
         self._knowledge_lookup = knowledge_lookup
         self._snapshot_lookup = snapshot_lookup
         self._key_ring = key_ring
+        self._runtime = runtime
 
     def process_message(self, data: dict) -> str:
         entity = data["enrichment_entity"]
@@ -68,6 +72,9 @@ class SpiderFootEnrichment:
             raise TargetNotAllowed(f"{root} is not in SPIDERFOOT_ALLOWED_DOMAINS")
 
         cfg = self._settings
+        timeout = (
+            self._timeout()
+        )  # fixed for this analysis; a change in the panel applies to the next one
         # `full` keeps SpiderFoot's whole Passive group; `lean` sends an explicit module list.
         # Keyed modules join `lean` only once their key is stored and verified in SpiderFoot.
         keyed = self._apply_keys()
@@ -97,7 +104,7 @@ class SpiderFootEnrichment:
                 outcome = self._client.run_scan(
                     target,
                     cfg.usecase,
-                    timeout_seconds=cfg.timeout_seconds,
+                    timeout_seconds=timeout,
                     poll_seconds=cfg.poll_seconds,
                     **scan_options,
                 )
@@ -136,7 +143,7 @@ class SpiderFootEnrichment:
                 subdomain_sources=SUBDOMAIN_SOURCES,
                 dns_facts=dns_facts,
                 scan_status=outcome.status,
-                timeout_seconds=cfg.timeout_seconds,
+                timeout_seconds=timeout,
                 timed_out=outcome.timed_out,
                 ui_url=cfg.ui_url,
             )
@@ -150,7 +157,7 @@ class SpiderFootEnrichment:
                 plan = plan_next(
                     mapped.discovered_domains,
                     scanned=known,
-                    allowlist=cfg.allowed_domains,
+                    allowlist=self._allowlist(),
                     remaining_budget=cfg.max_scans - attempts - len(queue),
                 )
                 known.update(plan.targets)
@@ -208,8 +215,17 @@ class SpiderFootEnrichment:
             )
         return message
 
+    def _allowlist(self) -> frozenset[str]:
+        """The .env list plus the domains added from the control panel, read at each use."""
+        base = self._settings.allowed_domains
+        return self._runtime.effective_allowlist(base) if self._runtime else base
+
+    def _timeout(self) -> int:
+        base = self._settings.timeout_seconds
+        return self._runtime.effective_timeout(base) if self._runtime else base
+
     def _authorized(self, target: str) -> bool:
-        return is_allowed(target, self._settings.allowed_domains)
+        return is_allowed(target, self._allowlist())
 
     def _apply_keys(self) -> frozenset[str]:
         """Store the owner's free API keys in SpiderFoot; returns the modules whose key is verified. Never logs values."""
@@ -332,14 +348,18 @@ def _norm(domain: str) -> str:
     return domain.strip().lower().rstrip(".")
 
 
-def _start_watcher(helper: Any, settings: Settings) -> None:
+def _start_watcher(helper: Any, settings: Settings, runtime: RuntimeStore | None = None) -> None:
     """Re-analyse domains labelled octifoot:watch every interval (off unless configured)."""
     log = helper.connector_logger
     interval = settings.watch_interval_minutes * 60
     watcher = Watcher(
         interval_seconds=interval,
         max_per_cycle=settings.watch_max_per_cycle,
-        allowlist=settings.allowed_domains,
+        allowlist=(
+            (lambda: runtime.effective_allowlist(settings.allowed_domains))
+            if runtime
+            else settings.allowed_domains
+        ),
         list_watched=lambda: query_watched(helper.api.query),
         last_scan=lambda value: snapshot_time(helper.api.query, value),
         ask=lambda object_id: ask_enrichment(helper.api.query, object_id, helper.connect_id),
@@ -355,7 +375,7 @@ def _start_watcher(helper: Any, settings: Settings) -> None:
     )
 
 
-def _load_configuration() -> tuple[Settings, KeyRing | None]:
+def _load_configuration() -> tuple[Settings, KeyRing | None, RuntimeStore | None]:
     """Read and validate every setting before the connector registers; a bad one exits with a readable message."""
     try:
         settings = load_settings(os.environ)
@@ -364,14 +384,37 @@ def _load_configuration() -> tuple[Settings, KeyRing | None]:
             if settings.api_keys_file
             else None
         )
-    except ConfigError as exc:
+        runtime = RuntimeStore(settings.state_dir) if settings.state_dir else None
+    except (ConfigError, OSError) as exc:
         print(f"octifoot: configuration error: {exc}", file=sys.stderr, flush=True)
         raise SystemExit(2) from exc
-    return settings, ring
+    return settings, ring, runtime
+
+
+def _start_panel(helper: Any, settings: Settings, runtime: RuntimeStore) -> None:
+    """Serve the local control panel (domains and maximum time). The token is never logged."""
+    log = helper.connector_logger
+    panel = PanelServer(
+        runtime,
+        settings.ui_token,
+        base_domains=settings.allowed_domains,
+        base_timeout=settings.timeout_seconds,
+        host=settings.ui_bind,
+        port=settings.ui_port,
+        lang=settings.ui_lang,
+        log=lambda level, message, meta: getattr(log, level)(message, meta),
+    )
+    port = panel.start()
+    log.info("Control panel listening", {"bind": settings.ui_bind, "port": port})
+    if settings.ui_bind not in ("127.0.0.1", "::1"):
+        log.warning(
+            "Control panel bound beyond loopback: it is safe only if the port is published on 127.0.0.1",
+            {"bind": settings.ui_bind},
+        )
 
 
 def main() -> None:
-    settings, key_ring = _load_configuration()
+    settings, key_ring, runtime = _load_configuration()
     helper = OpenCTIConnectorHelper({})
     enrichment = SpiderFootEnrichment(
         helper,
@@ -381,9 +424,12 @@ def main() -> None:
         knowledge_lookup=lambda values: query_known(helper.api.query, values),
         snapshot_lookup=lambda target: latest_snapshot(helper.api.query, target),
         key_ring=key_ring,
+        runtime=runtime,
     )
     if key_ring is not None:  # names only, never values
         helper.connector_logger.info("API keys loaded", {"modules": sorted(key_ring.modules)})
+    if settings.ui_token and runtime is not None:
+        _start_panel(helper, settings, runtime)
     if settings.watch_interval_minutes:
-        _start_watcher(helper, settings)
+        _start_watcher(helper, settings, runtime)
     helper.listen(message_callback=enrichment.process_message)

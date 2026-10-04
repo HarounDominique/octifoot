@@ -13,6 +13,7 @@ COPY src ./src
 RUN pip install --no-cache-dir .
 
 RUN useradd --system --no-create-home connector
+RUN mkdir -p /var/lib/octifoot && chown connector /var/lib/octifoot
 USER connector
 
 ENTRYPOINT ["python", "-m", "spiderfoot_connector"]

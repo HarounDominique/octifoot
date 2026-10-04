@@ -20,6 +20,7 @@ for some of its newest features the proof is still a fixture or a recorded scan,
 | Say whether the scan itself was complete and its sources healthy | Logs only | n/a | Logs only | Yes, in the Note |
 | Use API-keyed sources | Yes, if keys are configured | n/a | Yes | **Yes, optional, with your own free keys** (`docs/api-keys.md`): the 52 keyed modules that add data octifoot already imports. Plumbing verified against the real SpiderFoot; **never run with a real provider key**. The 28 event types only keyed modules produce for things octifoot does not import (ports, vulnerabilities...) stay unmapped but reachable through the SpiderFoot link |
 | Run active modules (port scans, zone transfers) | Yes | n/a | Yes | **Only by explicit opt-in** (`SPIDERFOOT_ALLOW_ACTIVE`); never by default |
+| Change which domains may be analysed, or the maximum time, without editing files | Not applicable | Not applicable | Not applicable | **Yes, opt-in**: a local control panel (token, ownership confirmation, validation, audit log); see `docs/README.md` |
 | Re-scan on a schedule | No (open-source edition) | No | No | **Yes, opt-in**: label a domain `octifoot:watch` and set an interval; proven live with two automatic runs. **No alerting**: the comparison Note is the record |
 
 ## What was measured

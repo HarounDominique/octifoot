@@ -37,3 +37,8 @@ When one scan covers several domains (a provider, a CNAME target), every event t
 _derived_from: reflection/watch-automation.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 An automatic trigger must go through the same request and the same authorization checks as the manual one (here the allowlist), require an explicit opt-in per target, default to off, and be capped, so automating cannot widen what is scanned.
+
+### a-control-that-sets-scope-needs-validation-authentication-and-an-audit-trail
+_derived_from: reflection/control-panel.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+When an interface can change what a tool is allowed to touch, validate every name it accepts (a bare top-level name or a public suffix would authorise strangers), keep it local with a secret, a session, CSRF and Host checks, require an explicit ownership confirmation, and write every change to an audit log.

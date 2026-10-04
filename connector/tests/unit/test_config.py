@@ -173,3 +173,103 @@ def test_watch_interval_must_be_zero_or_between_five_minutes_and_a_week(bad):
 def test_watch_cap_is_bounded(bad):
     with pytest.raises(ConfigError, match="SPIDERFOOT_WATCH_MAX_PER_CYCLE"):
         load_settings({**BASE, "SPIDERFOOT_WATCH_MAX_PER_CYCLE": bad})
+
+
+# --- the allowlist in .env is validated like the control panel's ---
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "com",
+        "co.uk",
+        "192.168.0.1",
+        "http://example.com",
+        "*.example.com",
+        "example.com/path",
+        "localhost",
+    ],
+)
+def test_an_unsafe_allowlist_entry_refuses_to_start_and_names_it(bad):
+    with pytest.raises(ConfigError) as err:
+        load_settings({**BASE, "SPIDERFOOT_ALLOWED_DOMAINS": f"example.com,{bad}"})
+    assert "SPIDERFOOT_ALLOWED_DOMAINS" in str(err.value) and bad in str(err.value)
+
+
+def test_valid_entries_keep_working_and_are_normalised():
+    s = load_settings(
+        {**BASE, "SPIDERFOOT_ALLOWED_DOMAINS": " Example.COM. , forocoches.com ,www.example.org"}
+    )
+    assert s.allowed_domains == frozenset({"example.com", "forocoches.com", "www.example.org"})
+
+
+# --- control panel settings ---
+
+UI_TOKEN = "SENTINEL-UI-TOKEN-0123456789"
+
+
+def panel_env(**extra):
+    return {
+        **BASE,
+        "OCTIFOOT_STATE_DIR": "/var/lib/octifoot",
+        "OCTIFOOT_UI_TOKEN": UI_TOKEN,
+        **extra,
+    }
+
+
+def test_the_panel_is_off_by_default_with_safe_defaults():
+    s = load_settings(BASE)
+    assert s.ui_token == "" and s.ui_port == 8099 and s.ui_bind == "127.0.0.1" and s.ui_lang == "en"
+
+
+def test_a_token_enables_the_panel_when_a_state_directory_is_given():
+    s = load_settings(panel_env())
+    assert s.ui_token == UI_TOKEN and s.state_dir == "/var/lib/octifoot"
+
+
+def test_the_token_never_shows_in_the_settings_repr():
+    assert UI_TOKEN not in repr(load_settings(panel_env())) and UI_TOKEN not in str(
+        load_settings(panel_env())
+    )
+
+
+@pytest.mark.parametrize("short", ["x", "a" * 15])
+def test_a_short_token_is_refused_without_echoing_it(short):
+    with pytest.raises(ConfigError) as err:
+        load_settings(panel_env(OCTIFOOT_UI_TOKEN=short))
+    assert "OCTIFOOT_UI_TOKEN" in str(err.value) and "16" in str(err.value)
+
+
+def test_the_panel_needs_a_state_directory():
+    with pytest.raises(ConfigError, match="OCTIFOOT_STATE_DIR"):
+        load_settings({**BASE, "OCTIFOOT_UI_TOKEN": UI_TOKEN})
+
+
+@pytest.mark.parametrize("bad", ["0", "65536", "-1", "http", ""])
+def test_the_panel_port_must_be_a_valid_port(bad):
+    if bad == "":
+        assert load_settings(panel_env(OCTIFOOT_UI_PORT=bad)).ui_port == 8099
+        return
+    with pytest.raises(ConfigError, match="OCTIFOOT_UI_PORT"):
+        load_settings(panel_env(OCTIFOOT_UI_PORT=bad))
+
+
+def test_the_panel_port_and_language_are_read():
+    s = load_settings(panel_env(OCTIFOOT_UI_PORT="9000", OCTIFOOT_UI_LANG="es"))
+    assert s.ui_port == 9000 and s.ui_lang == "es"
+
+
+def test_an_unknown_language_is_refused():
+    with pytest.raises(ConfigError, match="OCTIFOOT_UI_LANG"):
+        load_settings(panel_env(OCTIFOOT_UI_LANG="fr"))
+
+
+@pytest.mark.parametrize("good", ["127.0.0.1", "0.0.0.0", "::1"])
+def test_the_bind_address_must_be_an_ip(good):
+    assert load_settings(panel_env(OCTIFOOT_UI_BIND=good)).ui_bind == good
+
+
+@pytest.mark.parametrize("bad", ["localhost", "example.com", "300.1.1.1"])
+def test_a_bind_address_that_is_not_an_ip_is_refused(bad):
+    with pytest.raises(ConfigError, match="OCTIFOOT_UI_BIND"):
+        load_settings(panel_env(OCTIFOOT_UI_BIND=bad))

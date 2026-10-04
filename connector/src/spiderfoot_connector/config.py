@@ -1,10 +1,11 @@
 """Environment-driven settings. Fails fast so an unsafe config never starts."""
 
+import ipaddress
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
-from spiderfoot_connector.allowlist import parse_allowlist
+from spiderfoot_connector.allowlist import parse_allowlist, validate_domain
 from spiderfoot_connector.profiles import PROFILES
 
 PASSIVE_USECASE = "passive"
@@ -30,9 +31,16 @@ class Settings:
     api_keys_file: str = ""  # path to the JSON file of free API keys; "" = none
     watch_interval_minutes: int = 0  # 0 = automatic re-analysis off
     watch_max_per_cycle: int = 3
+    state_dir: str = (
+        ""  # where the control panel keeps its settings and audit log; "" = no run-time settings
+    )
     ui_url: str = (
         ""  # address of the SpiderFoot UI as the analyst's browser reaches it; "" = no links
     )
+    ui_token: str = field(default="", repr=False)  # control panel secret; "" = panel off
+    ui_port: int = 8099
+    ui_bind: str = "127.0.0.1"
+    ui_lang: str = "en"
 
 
 def _int(env: Mapping[str, str], key: str, default: int, lo: int, hi: int) -> int:
@@ -54,6 +62,13 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         raise ConfigError("SPIDERFOOT_URL is required")
 
     allowed = parse_allowlist(env.get("SPIDERFOOT_ALLOWED_DOMAINS"))
+    for entry in sorted(allowed):
+        try:
+            validate_domain(entry)
+        except ValueError as exc:
+            raise ConfigError(
+                f"SPIDERFOOT_ALLOWED_DOMAINS: {entry!r} is not usable: {exc}"
+            ) from exc
     if not allowed:
         raise ConfigError(
             "SPIDERFOOT_ALLOWED_DOMAINS is required: list the domains you are authorized to scan"
@@ -82,6 +97,21 @@ def load_settings(env: Mapping[str, str]) -> Settings:
             "SPIDERFOOT_WATCH_INTERVAL_MINUTES must be 0 (off) or between 5 and 10080 minutes, "
             f"got {watch_raw!r}"
         )
+    ui_token = (env.get("OCTIFOOT_UI_TOKEN") or "").strip()
+    if ui_token and len(ui_token) < 16:
+        raise ConfigError("OCTIFOOT_UI_TOKEN must be at least 16 characters")
+    if ui_token and not (env.get("OCTIFOOT_STATE_DIR") or "").strip():
+        raise ConfigError(
+            "OCTIFOOT_UI_TOKEN needs OCTIFOOT_STATE_DIR (where the panel keeps its settings)"
+        )
+    ui_lang = (env.get("OCTIFOOT_UI_LANG") or "en").strip().lower()
+    if ui_lang not in ("en", "es"):
+        raise ConfigError(f"OCTIFOOT_UI_LANG must be en or es, got {ui_lang!r}")
+    ui_bind = (env.get("OCTIFOOT_UI_BIND") or "127.0.0.1").strip()
+    try:
+        ipaddress.ip_address(ui_bind)
+    except ValueError as exc:
+        raise ConfigError(f"OCTIFOOT_UI_BIND must be an IP address, got {ui_bind!r}") from exc
     ui_url = (env.get("SPIDERFOOT_UI_URL") or "").strip().rstrip("/")
     if ui_url:
         parts = urlsplit(ui_url)
@@ -106,6 +136,11 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         max_scans=_int(env, "SPIDERFOOT_MAX_SCANS", 5, 1, 20),
         profile=profile,
         ui_url=ui_url,
+        ui_token=ui_token,
+        ui_port=_int(env, "OCTIFOOT_UI_PORT", 8099, 1, 65535),
+        ui_bind=ui_bind,
+        ui_lang=ui_lang,
+        state_dir=(env.get("OCTIFOOT_STATE_DIR") or "").strip(),
         api_keys_file=(env.get("SPIDERFOOT_API_KEYS_FILE") or "").strip(),
         watch_interval_minutes=watch_interval,
         watch_max_per_cycle=_int(env, "SPIDERFOOT_WATCH_MAX_PER_CYCLE", 3, 1, 20),
