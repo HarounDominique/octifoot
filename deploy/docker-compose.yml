@@ -154,6 +154,9 @@ services:
       - SPIDERFOOT_USECASE=passive
       - SPIDERFOOT_TIMEOUT_SECONDS=${SPIDERFOOT_TIMEOUT_SECONDS:-900}
       - SPIDERFOOT_SCORE=${SPIDERFOOT_SCORE:-30}
+      # Iterative expansion is opt-in (0 = single scan). Only allowlisted subdomains are ever expanded.
+      - SPIDERFOOT_MAX_DEPTH=${SPIDERFOOT_MAX_DEPTH:-0}
+      - SPIDERFOOT_MAX_SCANS=${SPIDERFOOT_MAX_SCANS:-5}
     depends_on:
       opencti: {condition: service_healthy}
       spiderfoot: {condition: service_started}
