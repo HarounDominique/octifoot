@@ -16,10 +16,11 @@ from pycti import Identity, Note, StixCoreRelationship
 
 SOURCE_NAME = "SpiderFoot"
 AFFILIATE_SCORE_DIVISOR = 2
+_FEED_RE = re.compile(r"^(?P<feed>[^\[\n]+?)\s*\[(?P<value>[^\]\n]+)\]")
 _DOMAIN_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z]{2,63}$")
 
 DOMAIN_EVENTS = {"INTERNET_NAME", "AFFILIATE_INTERNET_NAME"}
-IP_EVENTS = {"IP_ADDRESS"}
+IP_EVENTS = {"IP_ADDRESS", "IPV6_ADDRESS"}
 EMAIL_EVENTS = {"EMAILADDR"}
 MAPPED_EVENTS = DOMAIN_EVENTS | IP_EVENTS | EMAIL_EVENTS
 
@@ -30,6 +31,12 @@ class MapResult:
     unmapped: Counter = field(default_factory=Counter)
     false_positives: int = 0
     invalid: int = 0
+
+
+def parse_feed_event(data: str) -> tuple[str, str] | None:
+    """'Maltiverse [1.2.3.4]\\n...' -> ('Maltiverse', '1.2.3.4'); None if unparsable."""
+    m = _FEED_RE.match(data.strip())
+    return (m["feed"].strip(), m["value"].strip()) if m else None
 
 
 def _norm_domain(value: str) -> str:
@@ -137,7 +144,7 @@ def map_events(
             email = observable(stix2.EmailAddress, addr, module, score)
             relate("related-to", email, target_obj, module)
 
-        else:  # IP_ADDRESS — resolved after all domains are known
+        else:  # IP_ADDRESS / IPV6_ADDRESS — resolved after all domains are known
             pending_ips.append((data, _norm_domain(str(ev.get("source_data", ""))), module))
 
     for data, source_host, module in pending_ips:
