@@ -157,20 +157,32 @@ services:
       - SPIDERFOOT_UI_URL=${SPIDERFOOT_UI_URL:-http://localhost:5001}
       - SPIDERFOOT_WATCH_INTERVAL_MINUTES=${SPIDERFOOT_WATCH_INTERVAL_MINUTES:-0}
       - SPIDERFOOT_API_KEYS_FILE=${SPIDERFOOT_API_KEYS_FILE:-}
+      - OCTIFOOT_STATE_DIR=/var/lib/octifoot
+      - OCTIFOOT_UI_TOKEN=${OCTIFOOT_UI_TOKEN:-}
+      - OCTIFOOT_UI_PORT=${OCTIFOOT_UI_PORT:-8099}
+      - OCTIFOOT_UI_LANG=${OCTIFOOT_UI_LANG:-en}
+      - OCTIFOOT_UI_BIND=0.0.0.0 # inside the container; the host side is 127.0.0.1 (see ports)
       - SPIDERFOOT_WATCH_MAX_PER_CYCLE=${SPIDERFOOT_WATCH_MAX_PER_CYCLE:-3}
       - SPIDERFOOT_TIMEOUT_SECONDS=${SPIDERFOOT_TIMEOUT_SECONDS:-900}
       - SPIDERFOOT_SCORE=${SPIDERFOOT_SCORE:-30}
       # Iterative expansion is opt-in (0 = single scan). Only allowlisted subdomains are ever expanded.
       - SPIDERFOOT_MAX_DEPTH=${SPIDERFOOT_MAX_DEPTH:-0}
       - SPIDERFOOT_MAX_SCANS=${SPIDERFOOT_MAX_SCANS:-5}
+    ports:
+      # Control panel (domains and maximum time). Published on this machine ONLY; it is protected by OCTIFOOT_UI_TOKEN and is off
+      # unless that token is set. Never publish it on another interface without a TLS reverse proxy in front.
+      - "127.0.0.1:${OCTIFOOT_UI_PORT:-8099}:${OCTIFOOT_UI_PORT:-8099}"
     volumes:
       # Optional free API keys (docs/api-keys.md). Read-only; everything in it except the README and the example is git-ignored.
       - ./secrets:/run/octifoot-secrets:ro
+      # Settings and audit log of the control panel.
+      - octifoot-state:/var/lib/octifoot
     depends_on:
       opencti: {condition: service_healthy}
       spiderfoot: {condition: service_started}
 
 volumes:
+  octifoot-state:
   esdata:
   s3data:
   redisdata:

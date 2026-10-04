@@ -42,7 +42,7 @@ In OpenCTI open a `Domain-Name` observable, then enrichment → **SpiderFoot**.
 | `SPIDERFOOT_ALLOWED_DOMAINS` | required | Authorized domains, comma-separated |
 | `SPIDERFOOT_USECASE` | `passive` | `passive`, `footprint`, `investigate`, `all` |
 | `SPIDERFOOT_ALLOW_ACTIVE` | `false` | Required for any use case other than `passive` |
-| `SPIDERFOOT_TIMEOUT_SECONDS` | `900` | On timeout the scan is stopped and partial results are imported |
+| `SPIDERFOOT_TIMEOUT_SECONDS` | `900` | On timeout the scan is stopped and partial results are imported. Can be overridden from the control panel (60-7200) |
 | `SPIDERFOOT_POLL_SECONDS` | `10` | Status polling interval |
 | `SPIDERFOOT_SCORE` | `30` | `x_opencti_score` for imported observables |
 | `SPIDERFOOT_MAX_DEPTH` | `0` | Iterative expansion depth, 0-3. `0` = off |
@@ -92,6 +92,27 @@ SpiderFoot reports each IP's netblock and each netblock's ASN. The connector cha
 behind a CDN, every IP will point at the CDN's AS, which is how you spot shared hosting.
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
+
+### Control panel (domains and maximum time)
+
+A small web page to add or remove the domains octifoot may analyse and to change the maximum time of an analysis, without editing `deploy/.env`. **Off by default.** To turn it on put a token in `deploy/.env`
+(`openssl rand -hex 24`), recreate the connector and open <http://localhost:8099>:
+
+```bash
+# deploy/.env
+OCTIFOOT_UI_TOKEN=paste-the-generated-token-here
+# optional: OCTIFOOT_UI_LANG=es  (Spanish)  and OCTIFOOT_UI_PORT=8099
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d connector-spiderfoot
+```
+
+- **Authorized domains.** The `.env` list is shown read-only; below it you add domains (with their subdomains) or remove the ones you added. Adding requires ticking that you own the domain or have written permission to investigate it. Names are validated:
+  a bare top-level name (`com`), a public suffix (`co.uk`, `github.io`), an IP address, a wildcard, a URL or a port is refused. The same validation applies to the `.env` list, which the connector now refuses to start with if an entry is unsafe.
+  A domain you add is analysable at once and removable at any time; removing it does not delete what was already imported.
+- **Maximum time.** A whole number of seconds between 60 and 7200 applies to the next analysis (not ones already running); empty goes back to `SPIDERFOOT_TIMEOUT_SECONDS`. The Note's "stopped after N s" shows the value that was used.
+- **Why it is safe to have.** This page decides what may be scanned, so it is local only (published on `127.0.0.1`), protected by the token, and refuses any request whose `Host` is not localhost; every change needs a session, a CSRF token and,
+  for a domain, the ownership confirmation; failed logins are throttled; responses carry restrictive headers; every change is written to an audit log (`audit.log` in the `octifoot-state` volume: time, action, value, client address, never the token).
+- **Where things live.** Settings in `settings.json` and the audit in `audit.log`, both in the `octifoot-state` Docker volume. A corrupt file falls back to the `.env` values and the page says so.
+- **Do not expose it.** It has one operator and one token and no TLS. Do not publish the port on another interface; if you ever must, put a TLS reverse proxy with its own authentication in front.
 
 ### Free API keys (optional)
 
