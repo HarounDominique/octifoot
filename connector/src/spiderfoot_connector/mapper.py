@@ -7,6 +7,7 @@ else is counted in ``MapResult.unmapped`` so nothing is dropped silently.
 import ipaddress
 import re
 from collections import Counter
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -45,6 +46,10 @@ INFRA_EVENTS = {
     "PROVIDER_MAIL": "mail",
 }
 MAX_INFRA_VALUES = 5
+
+# Source health: modules that logged ERROR rows during the scan (diagnostic text only).
+MAX_HEALTH_MODULES = 8
+MAX_HEALTH_MESSAGE = 80
 
 # Every event type that ends up as an object, a label or a Note line. A scan profile must keep
 # producing all of these (checked against SpiderFoot's module metadata in the profile tests).
@@ -132,6 +137,7 @@ def map_events(
     scan_id: str,
     score: int,
     now: datetime,
+    source_errors: Sequence[tuple[str, str]] = (),
 ) -> MapResult:
     """Convert SpiderFoot ``scanexportjsonmulti`` rows into STIX objects."""
     result = MapResult()
@@ -317,7 +323,7 @@ def map_events(
         1 for name in flagged_names if name != target and name not in domains
     )
 
-    summary = _summary(result, objects, scan_id, target)
+    summary = _summary(result, objects, scan_id, target, source_errors)
     note = stix2.Note(
         id=Note.generate_id(now.isoformat(), summary),
         created=now,
@@ -355,7 +361,30 @@ def _infra_line(infra: dict[str, set[str]]) -> str:
     return "Infrastructure (as reported by SpiderFoot): " + "; ".join(parts) if parts else ""
 
 
-def _summary(result: MapResult, objects: dict[str, Any], scan_id: str, target: str) -> str:
+def _health_line(errors: Sequence[tuple[str, str]]) -> str:
+    by_module: dict[str, list[str]] = {}
+    for module, message in errors:
+        by_module.setdefault(module, []).append(message)
+    if not by_module:
+        return ""
+    # Most errors first, then by name, so the line does not depend on log order.
+    ordered = sorted(by_module.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    shown = [f"{m}: {min(msgs)[:MAX_HEALTH_MESSAGE]} ({len(msgs)})" for m, msgs in ordered]
+    extra = len(shown) - MAX_HEALTH_MODULES
+    text = "; ".join(shown[:MAX_HEALTH_MODULES]) + (f" and {extra} more" if extra > 0 else "")
+    return (
+        f"Sources that reported errors ({len(by_module)} modules; an outage that a module reports "
+        f"as 'no information' is not detectable here): {text}"
+    )
+
+
+def _summary(
+    result: MapResult,
+    objects: dict[str, Any],
+    scan_id: str,
+    target: str,
+    source_errors: Sequence[tuple[str, str]] = (),
+) -> str:
     kinds = Counter(o.type for o in objects.values() if o.type.endswith(("-name", "-addr")))
     lines = [
         f"SpiderFoot scan {scan_id} for {target}.",
@@ -387,6 +416,9 @@ def _summary(result: MapResult, objects: dict[str, Any], scan_id: str, target: s
         lines.append(
             f"Malicious flags on hostnames not in this import: {result.name_flags_skipped}"
         )
+    health = _health_line(source_errors)
+    if health:
+        lines.append(health)
     lines.append(
         f"False positives skipped: {result.false_positives}; invalid values: {result.invalid}"
     )

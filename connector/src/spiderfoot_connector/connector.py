@@ -85,12 +85,18 @@ class SpiderFootEnrichment:
             timed_out = timed_out or outcome.timed_out
             scans_ok += 1
             depth_reached = max(depth_reached, depth)
+            try:
+                source_errors = self._client.fetch_errors(outcome.scan_id)
+            except SpiderFootError as exc:  # a diagnostic must never fail the enrichment
+                log.warning("Could not read scan log", {"scan": outcome.scan_id, "error": str(exc)})
+                source_errors = []
             mapped = map_events(
                 outcome.events,
                 target=target,
                 scan_id=outcome.scan_id,
                 score=cfg.score,
                 now=datetime.now(UTC),
+                source_errors=source_errors,
             )
             unmapped.update(mapped.unmapped)
             for obj in mapped.objects:

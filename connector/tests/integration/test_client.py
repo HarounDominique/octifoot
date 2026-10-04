@@ -153,3 +153,46 @@ def test_full_profile_still_sends_usecase_and_empty_modulelist(client):
     body = parse_qs(responses.calls[0].request.body, keep_blank_values=True)
     assert body["usecase"] == ["Passive"]
     assert body["modulelist"] == [""]
+
+
+# --- scan log errors (source health) ---
+
+
+def log_rows(*rows):
+    return [
+        [f"2026-10-04 12:00:0{i}", comp, typ, msg, i] for i, (comp, typ, msg) in enumerate(rows)
+    ]
+
+
+@responses.activate
+def test_fetch_errors_returns_only_error_rows_decoded_in_order(client):
+    responses.add(
+        responses.GET,
+        f"{BASE}/scanlog",
+        # SpiderFoot returns the newest row first
+        json=log_rows(
+            ("sfp_commoncrawl", "ERROR", "CommonCrawl index doesn&#x27;t seem to be available."),
+            ("sfp_x", "DEBUG", "Received event"),
+            ("sfp_sublist3r", "ERROR", "Bad response code &quot;None&quot; from Sublist3r API"),
+            ("sfp_crt", "STATUS", "No certificate transparency info found for example.com"),
+        ),
+    )
+    assert client.fetch_errors("ABC") == [
+        ("sfp_sublist3r", 'Bad response code "None" from Sublist3r API'),
+        ("sfp_commoncrawl", "CommonCrawl index doesn't seem to be available."),
+    ]
+    query = parse_qs(responses.calls[0].request.url.split("?", 1)[1])
+    assert query["id"] == ["ABC"] and query["limit"] == ["100000"]
+
+
+@responses.activate
+def test_fetch_errors_with_no_error_rows_is_empty(client):
+    responses.add(responses.GET, f"{BASE}/scanlog", json=log_rows(("sfp_x", "DEBUG", "ok")))
+    assert client.fetch_errors("ABC") == []
+
+
+@responses.activate
+def test_fetch_errors_rejects_an_unexpected_response(client):
+    responses.add(responses.GET, f"{BASE}/scanlog", json={"error": "nope"})
+    with pytest.raises(SpiderFootError):
+        client.fetch_errors("ABC")
