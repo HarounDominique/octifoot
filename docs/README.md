@@ -63,7 +63,7 @@ Safety properties:
   as over budget.
 - A failing sub-scan is logged and listed; results already collected are kept. A failing
   root scan still fails the work.
-- Only `INTERNET_NAME` expands. IPs, emails, affiliates and co-hosts never do.
+- Only `INTERNET_NAME` expands. IPs, emails, affiliates and co-hosts never do (affiliate hostnames are not imported at all).
 
 An "expansion" Note on the target lists scans run, depth reached, failed sub-scans, and what
 was skipped and why. Scans run one after another, so total time can approach
@@ -74,7 +74,6 @@ was skipped and why. Scans run one after another, so total time can approach
 | SpiderFoot event | STIX object | Relationship |
 |---|---|---|
 | `INTERNET_NAME` | `domain-name` | `related-to` → scanned domain |
-| `AFFILIATE_INTERNET_NAME` | `domain-name` (score halved) | `related-to` → scanned domain |
 | `IP_ADDRESS`, `IPV6_ADDRESS` | `ipv4-addr` / `ipv6-addr` | `resolves-to` from the host that produced it, else the scanned domain |
 | `EMAILADDR` | `email-addr` | `related-to` → scanned domain |
 | `NETBLOCK_MEMBER` + `BGP_AS_MEMBER` (also IPv6) | `autonomous-system` (number only) | `belongs-to` from each imported IP to its AS |
@@ -135,6 +134,9 @@ so you can see which scan reported it.
 
 ### Deliberately not imported
 
+`AFFILIATE_INTERNET_NAME` is not imported (since the `drop-affiliate-names` task): in real scans 2 of 2, 5 of 6 and 17 of 17 extra
+domain objects were other parties' hostnames (Google's mail servers, reverse DNS of someone else's IPs, name servers) related to the target at half score.
+The mail and name servers are already summarised in the `Infrastructure` Note line. An IP whose source host is such a name is not linked to the target either.
 `AFFILIATE_EMAILADDR` is unreliable: the emails come from the WHOIS of co-hosted sites, not
 of the target. `AFFILIATE_IPADDR` / `AFFILIATE_IPV6_ADDRESS` are nameserver IPs. `PUBLIC_CODE_REPO`
 matches repositories by name, so it would credit other people's work to the target. Open ports, banners

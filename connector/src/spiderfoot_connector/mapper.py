@@ -16,11 +16,13 @@ import stix2
 from pycti import Identity, Note, StixCoreRelationship
 
 SOURCE_NAME = "SpiderFoot"
-AFFILIATE_SCORE_DIVISOR = 2
 _FEED_RE = re.compile(r"^(?P<feed>[^\[\n]+?)\s*\[(?P<value>[^\]\n]+)\]")
 _DOMAIN_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z]{2,63}$")
 
-DOMAIN_EVENTS = {"INTERNET_NAME", "AFFILIATE_INTERNET_NAME"}
+# AFFILIATE_INTERNET_NAME is deliberately absent: those hostnames belong to other parties (mail
+# providers, reverse DNS of someone else's IPs, name servers), not to the target.
+DOMAIN_EVENTS = {"INTERNET_NAME"}
+AFFILIATE_NAME_EVENT = "AFFILIATE_INTERNET_NAME"
 IP_EVENTS = {"IP_ADDRESS", "IPV6_ADDRESS"}
 EMAIL_EVENTS = {"EMAILADDR"}
 MAPPED_EVENTS = DOMAIN_EVENTS | IP_EVENTS | EMAIL_EVENTS
@@ -212,6 +214,7 @@ def map_events(
         return objects[obj.id]
 
     pending_ips: list[tuple[str, str, str]] = []
+    affiliate_hosts: set[str] = set()  # hostnames of other parties, never imported
     flagged: dict[str, list[tuple[str, str]]] = {}  # ip -> [(feed, module)]
     block_of_ip: dict[str, str] = {}  # ip -> netblock CIDR
     as_of_block: dict[str, tuple[int, str]] = {}  # netblock CIDR -> (ASN, module)
@@ -263,6 +266,8 @@ def map_events(
                 as_of_block[str(ev.get("source_data", "")).strip()] = (number, module)
             continue
         if etype not in MAPPED_EVENTS:
+            if etype == AFFILIATE_NAME_EVENT:
+                affiliate_hosts.add(_norm_domain(data))
             result.unmapped[etype] += 1
             continue
 
@@ -274,11 +279,9 @@ def map_events(
             if name == target or (etype, name) in emitted:
                 continue
             emitted.add((etype, name))
-            if etype == "INTERNET_NAME":
-                result.discovered_domains.append(name)
-            obs_score = score // AFFILIATE_SCORE_DIVISOR if etype.startswith("AFFILIATE") else score
+            result.discovered_domains.append(name)
             domains[name] = observable(
-                stix2.DomainName, name, module, obs_score, flagged_names.get(name, [])
+                stix2.DomainName, name, module, score, flagged_names.get(name, [])
             )
             relate("related-to", domains[name], target_obj, module)
 
@@ -301,6 +304,10 @@ def map_events(
             ip = ipaddress.ip_address(data)
         except ValueError:
             result.invalid += 1
+            continue
+        if source_host in affiliate_hosts and source_host not in domains:
+            # Falling back to the target would present another party's IP as the target's.
+            result.unmapped["IP_ADDRESS (affiliate host)"] += 1
             continue
         key = ("IP_ADDRESS", f"{source_host}>{ip}")
         if key in emitted:

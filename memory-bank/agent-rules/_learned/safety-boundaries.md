@@ -9,7 +9,7 @@ _derived_from: reflection/spiderfoot-connector.md, reflection/iterative-scan-loo
 For anything that touches third-party targets, enforce the allowlist at config load, at deploy (required env), and at runtime before the network call, and prove the refusal path live in E2E, including that no downstream request was made.
 
 ### never-attribute-shared-infrastructure-to-the-target
-_derived_from: reflection/risk-signal-mapping.md · evidence_count: 1 · last_validated: 2026-10-04_
+_derived_from: reflection/risk-signal-mapping.md, reflection/drop-affiliate-names.md · evidence_count: 2 · last_validated: 2026-10-04_
 
 Data about shared hosting, CDN ranges or co-hosted sites goes in a summary note, never as objects or relationships tied to the investigated target.
 
@@ -22,3 +22,8 @@ Any feature that acts on its own discoveries must be off by default, bounded by 
 _derived_from: reflection/live-expansion-check.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When showing an `.env` or config file, print only an explicit allowlist of known non-secret keys; a deny-pattern on key names (`KEY|TOKEN|PASSWORD`) misses names like `*_PASS`.
+
+### when-dropping-an-entity-audit-fallbacks-that-linked-to-it
+_derived_from: reflection/drop-affiliate-names.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+When you stop importing an entity type, read every lookup that used it as a link source for a default (`get(x, target)`): a missing key can silently re-attach other parties' data to the investigated target.
