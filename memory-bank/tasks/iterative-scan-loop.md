@@ -9,7 +9,7 @@ status: approved
 Routing: standard (4 source files, design fixed in spec).
 
 - [x] Phase 1 — Config + discovery + planner: `max_depth`/`max_scans` in config, `MapResult.discovered_domains`, pure `expansion.plan_next` (satisfies: SPEC-iterative-scan-loop.md#objective, SPEC-iterative-scan-loop.md#style)
-- [ ] Phase 2 — Connector loop: breadth-first scans, merged bundle, failure tolerance, summary (satisfies: SPEC-iterative-scan-loop.md#objective, SPEC-iterative-scan-loop.md#boundaries)
+- [x] Phase 2 — Connector loop: breadth-first scans, merged bundle, failure tolerance, summary (satisfies: SPEC-iterative-scan-loop.md#objective, SPEC-iterative-scan-loop.md#boundaries)
 - [ ] Phase 3 — Deploy + docs: compose/.env variables, README section (satisfies: SPEC-iterative-scan-loop.md#commands)
 
 ## Execution State
