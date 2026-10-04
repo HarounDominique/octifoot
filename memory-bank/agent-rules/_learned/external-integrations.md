@@ -24,7 +24,7 @@ _derived_from: reflection/iterative-scan-loop.md, reflection/asn-enrichment.md, 
 When a change adds fields a downstream system ingests, import them into the real system once and read them back; asserting the generated object does not prove the system kept it (OpenCTI silently drops external references without external_id or url).
 
 ### replay-recorded-events-when-upstream-is-nondeterministic
-_derived_from: reflection/iterative-scan-loop.md, reflection/reputation-and-infra-notes.md, reflection/x509-certificates.md · evidence_count: 3 · last_validated: 2026-10-04_
+_derived_from: reflection/iterative-scan-loop.md, reflection/reputation-and-infra-notes.md, reflection/x509-certificates.md, reflection/fix-cert-and-mail-attribution.md · evidence_count: 4 · last_validated: 2026-10-04_
 
 If a third-party source gives different results per run, save the real events from a run that exhibits the case and replay them through the code into the real target, instead of waiting for a fresh run to reproduce it.
 
@@ -59,7 +59,7 @@ _derived_from: reflection/key-findings.md · evidence_count: 1 · last_validated
 Before a rule says something is missing ("no SPF"), check with an independent tool that the upstream would have reported it if present, and never assert absence of something the upstream does not look for (here DMARC).
 
 ### compare-imported-values-with-ground-truth-in-live-checks
-_derived_from: reflection/fix-infra-attribution.md, reflection/dns-checks.md · evidence_count: 2 · last_validated: 2026-10-04_
+_derived_from: reflection/fix-infra-attribution.md, reflection/dns-checks.md, reflection/fix-cert-and-mail-attribution.md · evidence_count: 3 · last_validated: 2026-10-04_
 
 A live check must compare the imported values, and the inputs of any rule built on them, with an independent source for the real target (`dig`, `whois`); "the line appeared and the work completed" does not show the values belong to the target.
 
@@ -67,3 +67,8 @@ A live check must compare the imported values, and the inputs of any rule built 
 _derived_from: reflection/dns-checks.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When validating a parser against ground truth, include a subject that actually has the feature (the real targets may all be empty) and read the ground truth without reusing the parser's own normalisation, or a shared flaw will make them agree.
+
+### a-rule-fitted-to-one-sample-is-a-hypothesis
+_derived_from: reflection/fix-cert-and-mail-attribution.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+An attribution or filter rule designed from a single real sample is a hypothesis: ship it behind a count of what it rejects ("N not the target's") and re-check it the first time richer real data arrives, because 100 % rejection is as wrong as 100 % acceptance.
