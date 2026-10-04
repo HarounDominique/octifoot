@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from spiderfoot_connector.allowlist import parse_allowlist
+from spiderfoot_connector.profiles import PROFILES
 
 PASSIVE_USECASE = "passive"
 USECASES = frozenset({"all", "footprint", "investigate", PASSIVE_USECASE})
@@ -24,6 +25,7 @@ class Settings:
     score: int
     max_depth: int = 0
     max_scans: int = 5
+    profile: str = "full"
 
 
 def _int(env: Mapping[str, str], key: str, default: int, lo: int, hi: int) -> int:
@@ -60,6 +62,15 @@ def load_settings(env: Mapping[str, str]) -> Settings:
             "set SPIDERFOOT_ALLOW_ACTIVE=true to opt in explicitly"
         )
 
+    # lean was measured faster at identical imported objects (SPEC-fast-scan-profile, Deviations);
+    # it only exists for the passive use case, so any other use case keeps the full module set.
+    default_profile = "lean" if usecase == PASSIVE_USECASE else "full"
+    profile = (env.get("SPIDERFOOT_PROFILE") or default_profile).strip().lower()
+    if profile not in PROFILES:
+        raise ConfigError(f"SPIDERFOOT_PROFILE must be one of {list(PROFILES)}, got {profile!r}")
+    if profile == "lean" and usecase != PASSIVE_USECASE:
+        raise ConfigError("SPIDERFOOT_PROFILE=lean requires SPIDERFOOT_USECASE=passive")
+
     return Settings(
         base_url=base_url,
         allowed_domains=allowed,
@@ -69,4 +80,5 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         score=_int(env, "SPIDERFOOT_SCORE", 30, 0, 100),
         max_depth=_int(env, "SPIDERFOOT_MAX_DEPTH", 0, 0, 3),
         max_scans=_int(env, "SPIDERFOOT_MAX_SCANS", 5, 1, 20),
+        profile=profile,
     )

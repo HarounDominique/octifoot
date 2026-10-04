@@ -83,3 +83,36 @@ def test_expansion_settings_parsed():
 def test_expansion_bounds_enforced(key, value):
     with pytest.raises(ConfigError, match=key):
         load_settings({**BASE, key: value})
+
+
+def test_profile_defaults_to_lean_with_passive_usecase():
+    assert load_settings(BASE).profile == "lean"
+
+
+def test_profile_defaults_to_full_when_usecase_is_not_passive():
+    env = {**BASE, "SPIDERFOOT_USECASE": "footprint", "SPIDERFOOT_ALLOW_ACTIVE": "true"}
+    assert load_settings(env).profile == "full"
+
+
+def test_full_profile_can_still_be_selected():
+    assert load_settings({**BASE, "SPIDERFOOT_PROFILE": "full"}).profile == "full"
+
+
+def test_lean_profile_accepted_with_passive():
+    assert load_settings({**BASE, "SPIDERFOOT_PROFILE": "lean"}).profile == "lean"
+
+
+def test_unknown_profile_rejected():
+    with pytest.raises(ConfigError, match="SPIDERFOOT_PROFILE"):
+        load_settings({**BASE, "SPIDERFOOT_PROFILE": "turbo"})
+
+
+def test_lean_requires_passive_usecase():
+    env = {
+        **BASE,
+        "SPIDERFOOT_PROFILE": "lean",
+        "SPIDERFOOT_USECASE": "all",
+        "SPIDERFOOT_ALLOW_ACTIVE": "true",
+    }
+    with pytest.raises(ConfigError, match="lean"):
+        load_settings(env)

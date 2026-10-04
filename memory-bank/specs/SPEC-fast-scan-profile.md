@@ -17,12 +17,14 @@ Evidence (recorded scan `DF50665A`, registrolineas.com, 375 s, 447 events): only
 `sfp_crt` (our subdomain source) also produces `CO_HOSTED_SITE`, so excluding by event type is wrong.
 
 Success:
-- `SPIDERFOOT_PROFILE=full` (default until proven) behaves exactly as today.
+- `SPIDERFOOT_PROFILE=full` behaves exactly as the pre-profile connector (default only when the use case is not `passive`).
 - `SPIDERFOOT_PROFILE=lean` starts scans with an explicit `modulelist`: SpiderFoot's passive
   modules without API key, `invasive` or `tool` flags, minus a deny-list of modules that only
   feed discarded data (`sfp_robtex`, `sfp_countryname`).
 - A/B on the same domains: the set of imported STIX ids is identical, except documented losses,
   and lean takes at least 30% less time. Only then does `lean` become the default.
+  *(Amended: the user made `lean` the default on 2026-10-04 although the rule was met on one
+  domain only; see the task file, Deviations.)*
 - The lean list can never contain an active module (enforced by a test against SpiderFoot's own metadata).
 
 Out of scope: changing SpiderFoot module options globally, parallel scans, caching of recent
