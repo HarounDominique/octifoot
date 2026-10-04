@@ -52,3 +52,8 @@ Report integration coverage against what real runs actually emitted (15 of the 4
 _derived_from: reflection/whois-dns-notes.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When a client polls a long-running remote job, retry transient connection errors on idempotent GETs (a few attempts, injected sleep) so one dropped keep-alive connection does not abort minutes of work, and never retry the request that starts the job.
+
+### validate-absence-claims-against-ground-truth
+_derived_from: reflection/key-findings.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+Before a rule says something is missing ("no SPF"), check with an independent tool that the upstream would have reported it if present, and never assert absence of something the upstream does not look for (here DMARC).

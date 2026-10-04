@@ -25,6 +25,21 @@ DENY = frozenset(
         "sfp_googleobjectstorage",
     }
 )
+# Lean-profile modules that really enumerate subdomains (others, like sfp_flickr or sfp_apple_itunes,
+# only emit hostnames as a by-product). Used to say when subdomain discovery may be incomplete.
+SUBDOMAIN_SOURCES = frozenset(
+    {
+        "sfp_crt",
+        "sfp_crobat_api",
+        "sfp_dnsdumpster",
+        "sfp_dnsgrep",
+        "sfp_mnemonic",
+        "sfp_open_passive_dns_database",
+        "sfp_sublist3r",
+        "sfp_threatminer",
+        "sfp_urlscan",
+    }
+)
 _SEED_EVENTS = frozenset({"ROOT", "DOMAIN_NAME", "INTERNET_NAME"})
 _EXCLUDED_FLAGS = frozenset({"apikey", "invasive", "tool"})
 

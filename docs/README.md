@@ -93,6 +93,23 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### Key findings
+
+The scan Note opens with a `Key findings (as of this scan)` block: what is notable in the data, by fixed rules, each tied to evidence in the same Note.
+It appears right after the first line; with nothing notable it reads `Key findings: nothing notable in the data the answering sources returned.` (never "clean").
+
+| Finding | Rule |
+|---|---|
+| Flagged | the target or an imported hostname/IP carries the malicious label |
+| Mail without SPF | mail hosts known, DNS answered for the target, no `v=spf1` record (DMARC is not checked by SpiderFoot, so it is never claimed) |
+| Certificate | an imported certificate expired, or expires within 14 days |
+| Newly registered | created less than 30 days before the scan |
+| Registration expiring | expires within 30 days, or already expired |
+| Shared infrastructure listed | reputation listings on subnets or co-hosts (not the target's own) |
+| Coverage | subdomain-enumerating sources that reported errors, so "no subdomains" may not be true |
+
+No object, label or score is derived from findings (a label such as "newly registered" would go stale). Thresholds are constants in `mapper.py`.
+
 ### TLS certificates
 
 `SSL_CERTIFICATE_RAW` (certificates found through crt.sh) becomes a STIX `x509-certificate` with serial number, issuer, subject, validity and signature algorithm,
