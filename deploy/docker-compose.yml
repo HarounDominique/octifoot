@@ -155,6 +155,8 @@ services:
       # full = SpiderFoot's whole Passive group; lean = explicit, faster module list (see docs).
       - SPIDERFOOT_PROFILE=${SPIDERFOOT_PROFILE:-}
       - SPIDERFOOT_UI_URL=${SPIDERFOOT_UI_URL:-http://localhost:5001}
+      - SPIDERFOOT_WATCH_INTERVAL_MINUTES=${SPIDERFOOT_WATCH_INTERVAL_MINUTES:-0}
+      - SPIDERFOOT_WATCH_MAX_PER_CYCLE=${SPIDERFOOT_WATCH_MAX_PER_CYCLE:-3}
       - SPIDERFOOT_TIMEOUT_SECONDS=${SPIDERFOOT_TIMEOUT_SECONDS:-900}
       - SPIDERFOOT_SCORE=${SPIDERFOOT_SCORE:-30}
       # Iterative expansion is opt-in (0 = single scan). Only allowlisted subdomains are ever expanded.

@@ -93,6 +93,17 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### Automatic re-analysis (watch)
+
+Off by default. Set `SPIDERFOOT_WATCH_INTERVAL_MINUTES` (5 to 10080) and the connector re-analyses, by itself, the domains you opt in: put the label **`octifoot:watch`** on a `Domain-Name` observable in OpenCTI.
+A loop in the connector (a daemon thread; one cycle every quarter of the interval, between 1 and 15 minutes) reads the labelled domains and, for each one that is **on the allowlist** and **due**, asks OpenCTI to run this connector's enrichment on it,
+the same request your click makes. Every automated run is therefore an ordinary work item with the usual Notes, snapshot and comparison, so the change detection finally has something to compare.
+
+A domain is due when its newest snapshot Note is at least one interval old (or it has none) and it was not already requested within the interval. Due domains go oldest first, never-scanned first, at most `SPIDERFOOT_WATCH_MAX_PER_CYCLE` (default 3) per cycle.
+A domain not on the allowlist is skipped and logged; removing the label stops the runs. A failing cycle never stops the loop. `CONNECTOR_AUTO` stays `false`: nothing is scanned without the label.
+The connector's OpenCTI token must be allowed to request enrichments (this stack uses the admin token; a dedicated connector user needs that capability). The "recently requested" record is in memory; after a restart the snapshot time decides.
+Alerting is not implemented: the comparison Note is the record of what changed.
+
 ### Link to the full SpiderFoot scan
 
 octifoot imports only part of a scan (the part that is safe and useful, 18 of SpiderFoot's 172 event types; the rest is counted as "unmapped"). The complete record stays in SpiderFoot's own database and UI, which runs in the same stack.
