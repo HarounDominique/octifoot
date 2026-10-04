@@ -15,6 +15,13 @@ expansion Note present.
 
 None. The success path stays unit-tested only; forcing it would have needed authorizing a third-party domain.
 
+## Second attempt
+
+On `zonetransfer.me` (published by its owner for security training): work complete 42/42, no errors, one scan. Still no subdomains to expand:
+`crt.sh` returned HTTP 502 for 6+ minutes and Sublist3r, CommonCrawl and Crobat also failed; the zone's subdomains are only reachable by active
+modules, which stay out of `lean`. The success path remains unit-tested only.
+
 ## Not done / next
 
-- Enrich a domain the owner controls that has public subdomains with depth 1 (one command, ~10-30 min) to verify merge and dedupe across real scans.
+- Retry the expansion when `crt.sh` is back, or on a domain whose subdomains have public certificates (3-5 min per scan).
+- Surface failed sources in the scan Note (modules that logged ERROR, and upstream HTTP errors) so a scan with zero subdomains because `crt.sh` was down is distinguishable from a domain with none. Needs its own spec.

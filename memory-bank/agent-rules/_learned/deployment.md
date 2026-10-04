@@ -24,7 +24,7 @@ _derived_from: reflection/fast-scan-profile.md, reflection/ab-validity-and-cloud
 A timing or A/B harness must treat a run that hit its timeout or ended ABORTED as invalid and say so in its verdict; never compute speedup or equality from a cut-off run.
 
 ### precheck-live-preconditions-from-recorded-data
-_derived_from: reflection/live-expansion-check.md · evidence_count: 1 · last_validated: 2026-10-04_
+_derived_from: reflection/live-expansion-check.md · evidence_count: 2 · last_validated: 2026-10-04_
 
 Before a slow live run meant to exercise a specific path, check from already-recorded real data that the target will actually trigger it; if it will not, say so and choose another target instead of recording a partial run as verification.
 
