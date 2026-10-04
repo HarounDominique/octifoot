@@ -45,6 +45,29 @@ In OpenCTI open a `Domain-Name` observable, then enrichment → **SpiderFoot**.
 | `SPIDERFOOT_TIMEOUT_SECONDS` | `900` | On timeout the scan is stopped and partial results are imported |
 | `SPIDERFOOT_POLL_SECONDS` | `10` | Status polling interval |
 | `SPIDERFOOT_SCORE` | `30` | `x_opencti_score` for imported observables |
+| `SPIDERFOOT_MAX_DEPTH` | `0` | Iterative expansion depth, 0-3. `0` = off |
+| `SPIDERFOOT_MAX_SCANS` | `5` | Max scans per request, 1-20, root included |
+
+## Iterative investigation (opt-in)
+
+With `SPIDERFOOT_MAX_DEPTH` ≥ 1, one enrichment request follows its own discoveries: after
+scanning a domain, the connector scans the **subdomains it found** (`INTERNET_NAME` events),
+breadth-first, each at most once, and imports everything in one bundle.
+
+Safety properties:
+- Off by default; a request is a single scan unless you opt in.
+- Every scan, expansions included, passes the same `SPIDERFOOT_ALLOWED_DOMAINS` check, so a
+  discovery can never widen the authorized scope. Third-party or look-alike hosts are
+  reported, never scanned.
+- Bounded by depth (max 3) and by total scans (max 20, root included). The rest is reported
+  as over budget.
+- A failing sub-scan is logged and listed; results already collected are kept. A failing
+  root scan still fails the work.
+- Only `INTERNET_NAME` expands. IPs, emails, affiliates and co-hosts never do.
+
+An "expansion" Note on the target lists scans run, depth reached, failed sub-scans, and what
+was skipped and why. Scans run one after another, so total time can approach
+`SPIDERFOOT_MAX_SCANS × SPIDERFOOT_TIMEOUT_SECONDS`.
 
 ## What is imported
 
@@ -71,6 +94,10 @@ Cloudflare's whole /20 and the "malicious co-hosts" were unrelated sites sharing
 Linking them to the target would present other companies' data as the target's. No STIX
 `Indicator` is created either: a feed flagging a shared CDN IP would yield false positives.
 Treat the label as a lead to verify, not a verdict.
+Labels and references are additive: OpenCTI keeps them across scans, and reputation feeds are
+not deterministic (the same domain was flagged in one scan and not in the next), so a later
+scan without the flag does not remove an earlier one. Each feed reference carries the scan id,
+so you can see which scan reported it.
 
 ### Deliberately not imported
 

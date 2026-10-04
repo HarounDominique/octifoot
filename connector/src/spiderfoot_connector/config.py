@@ -22,6 +22,8 @@ class Settings:
     timeout_seconds: int
     poll_seconds: int
     score: int
+    max_depth: int = 0
+    max_scans: int = 5
 
 
 def _int(env: Mapping[str, str], key: str, default: int, lo: int, hi: int) -> int:
@@ -65,4 +67,6 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         timeout_seconds=_int(env, "SPIDERFOOT_TIMEOUT_SECONDS", 900, 1, 86400),
         poll_seconds=_int(env, "SPIDERFOOT_POLL_SECONDS", 10, 1, 600),
         score=_int(env, "SPIDERFOOT_SCORE", 30, 0, 100),
+        max_depth=_int(env, "SPIDERFOOT_MAX_DEPTH", 0, 0, 3),
+        max_scans=_int(env, "SPIDERFOOT_MAX_SCANS", 5, 1, 20),
     )

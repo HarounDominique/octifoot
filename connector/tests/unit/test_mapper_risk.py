@@ -145,3 +145,29 @@ def test_unparsable_feed_data_counted_invalid():
 def test_risk_output_is_deterministic():
     events = json.loads(FIXTURE.read_text())
     assert [o.id for o in run(events).objects] == [o.id for o in run(events).objects]
+
+
+def test_discovered_domains_only_internet_names_excluding_target_and_noise():
+    r = run(
+        [
+            ev("INTERNET_NAME", "www.example.com"),
+            ev("INTERNET_NAME", "WWW.example.com."),  # duplicate after normalization
+            ev("INTERNET_NAME", "example.com"),  # the target itself
+            ev("INTERNET_NAME", "api.example.com"),
+            ev("AFFILIATE_INTERNET_NAME", "cdn.partner.net"),
+            ev("INTERNET_NAME", "not a domain"),
+            {**ev("INTERNET_NAME", "old.example.com"), "false_positive": 1},
+        ]
+    )
+    assert r.discovered_domains == ["www.example.com", "api.example.com"]
+
+
+def test_no_discoveries_yields_empty_list():
+    assert run([]).discovered_domains == []
+
+
+def test_feed_references_carry_external_id_so_opencti_keeps_them(risk):
+    # OpenCTI silently drops external references that have neither url nor external_id.
+    for ip in ips(risk).values():
+        for ref in getattr(ip, "x_opencti_external_references", []):
+            assert ref.get("external_id") or ref.get("url"), ref

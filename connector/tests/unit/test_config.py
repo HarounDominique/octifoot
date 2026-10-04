@@ -57,3 +57,29 @@ def test_bad_numbers_rejected(key):
 def test_score_out_of_range_rejected():
     with pytest.raises(ConfigError, match="SPIDERFOOT_SCORE"):
         load_settings({**BASE, "SPIDERFOOT_SCORE": "101"})
+
+
+def test_expansion_disabled_by_default():
+    s = load_settings(BASE)
+    assert s.max_depth == 0
+    assert s.max_scans == 5
+
+
+def test_expansion_settings_parsed():
+    s = load_settings({**BASE, "SPIDERFOOT_MAX_DEPTH": "2", "SPIDERFOOT_MAX_SCANS": "8"})
+    assert (s.max_depth, s.max_scans) == (2, 8)
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("SPIDERFOOT_MAX_DEPTH", "4"),
+        ("SPIDERFOOT_MAX_DEPTH", "-1"),
+        ("SPIDERFOOT_MAX_SCANS", "0"),
+        ("SPIDERFOOT_MAX_SCANS", "21"),
+        ("SPIDERFOOT_MAX_DEPTH", "x"),
+    ],
+)
+def test_expansion_bounds_enforced(key, value):
+    with pytest.raises(ConfigError, match=key):
+        load_settings({**BASE, key: value})

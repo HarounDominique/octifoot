@@ -1,15 +1,17 @@
 """OpenCTI INTERNAL_ENRICHMENT wiring: Domain-Name -> SpiderFoot scan -> STIX bundle."""
 
 import os
+from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 
 import stix2
-from pycti import OpenCTIConnectorHelper
+from pycti import Note, OpenCTIConnectorHelper
 
 from spiderfoot_connector.allowlist import is_allowed
 from spiderfoot_connector.client import SpiderFootClient, SpiderFootError
 from spiderfoot_connector.config import Settings, load_settings
+from spiderfoot_connector.expansion import plan_next
 from spiderfoot_connector.mapper import map_events
 
 SUPPORTED_ENTITY = "Domain-Name"
@@ -30,43 +32,140 @@ class SpiderFootEnrichment:
         if entity.get("entity_type") != SUPPORTED_ENTITY:
             raise ValueError(f"only {SUPPORTED_ENTITY} observables are supported")
 
-        target = entity["observable_value"]
+        root = entity["observable_value"]
         log = self._helper.connector_logger
         # Authorization gate: must run before any SpiderFoot call.
-        if not is_allowed(target, self._settings.allowed_domains):
-            log.warning(
-                "Refusing scan: target not in SPIDERFOOT_ALLOWED_DOMAINS", {"target": target}
+        if not self._authorized(root):
+            log.warning("Refusing scan: target not in SPIDERFOOT_ALLOWED_DOMAINS", {"target": root})
+            raise TargetNotAllowed(f"{root} is not in SPIDERFOOT_ALLOWED_DOMAINS")
+
+        cfg = self._settings
+        objects: dict[str, Any] = {}
+        queue: list[tuple[str, int]] = [(root, 0)]
+        known = {_norm(root)}  # scanned or queued: never scan twice
+        attempts = 0
+        scans_ok = 0
+        depth_reached = 0
+        failed: list[str] = []
+        out_of_scope: list[str] = []
+        budget_skipped: list[str] = []
+        timed_out = False
+        root_outcome = None
+        unmapped: Counter = Counter()
+
+        while queue:
+            target, depth = queue.pop(0)
+            attempts += 1
+            # Every scan, including expansions, passes the allowlist gate.
+            if not self._authorized(target):
+                out_of_scope.append(target)
+                continue
+            log.info("Starting SpiderFoot scan", {"target": target, "depth": depth})
+            try:
+                outcome = self._client.run_scan(
+                    target,
+                    cfg.usecase,
+                    timeout_seconds=cfg.timeout_seconds,
+                    poll_seconds=cfg.poll_seconds,
+                )
+                if outcome.status == "ERROR-FAILED":
+                    raise SpiderFootError(f"scan {outcome.scan_id} ended with ERROR-FAILED")
+            except SpiderFootError as exc:
+                if depth == 0:
+                    raise
+                log.warning("Sub-scan failed, continuing", {"target": target, "error": str(exc)})
+                failed.append(target)
+                continue
+
+            root_outcome = root_outcome or outcome
+            timed_out = timed_out or outcome.timed_out
+            scans_ok += 1
+            depth_reached = max(depth_reached, depth)
+            mapped = map_events(
+                outcome.events,
+                target=target,
+                scan_id=outcome.scan_id,
+                score=cfg.score,
+                now=datetime.now(UTC),
             )
-            raise TargetNotAllowed(f"{target} is not in SPIDERFOOT_ALLOWED_DOMAINS")
+            unmapped.update(mapped.unmapped)
+            for obj in mapped.objects:
+                objects.setdefault(obj.id, obj)
 
-        log.info("Starting SpiderFoot scan", {"target": target, "usecase": self._settings.usecase})
-        outcome = self._client.run_scan(
-            target,
-            self._settings.usecase,
-            timeout_seconds=self._settings.timeout_seconds,
-            poll_seconds=self._settings.poll_seconds,
-        )
-        if outcome.status == "ERROR-FAILED":
-            raise SpiderFootError(f"scan {outcome.scan_id} ended with ERROR-FAILED")
+            if depth < cfg.max_depth:
+                plan = plan_next(
+                    mapped.discovered_domains,
+                    scanned=known,
+                    allowlist=cfg.allowed_domains,
+                    remaining_budget=cfg.max_scans - attempts - len(queue),
+                )
+                known.update(plan.targets)
+                known.update(plan.out_of_scope)
+                known.update(plan.budget_skipped)
+                out_of_scope += plan.out_of_scope
+                budget_skipped += plan.budget_skipped
+                queue += [(t, depth + 1) for t in plan.targets]
 
-        mapped = map_events(
-            outcome.events,
-            target=target,
-            scan_id=outcome.scan_id,
-            score=self._settings.score,
-            now=datetime.now(UTC),
-        )
-        if mapped.unmapped:
-            log.info("Unmapped SpiderFoot event types", dict(mapped.unmapped))
+        if unmapped:
+            log.info("Unmapped SpiderFoot event types", dict(unmapped))
 
-        bundle = stix2.Bundle(objects=mapped.objects, allow_custom=True).serialize()
+        expanding = cfg.max_depth > 0
+        if expanding:
+            note = self._expansion_note(
+                objects,
+                root,
+                scans_ok,
+                depth_reached,
+                failed,
+                out_of_scope,
+                budget_skipped,
+            )
+            objects[note.id] = note
+
+        bundle = stix2.Bundle(objects=list(objects.values()), allow_custom=True).serialize()
         self._helper.send_stix2_bundle(bundle)
 
-        partial = " (partial results: scan timed out and was stopped)" if outcome.timed_out else ""
-        return (
-            f"SpiderFoot scan {outcome.scan_id} {outcome.status}: "
-            f"sent {len(mapped.objects)} STIX objects{partial}"
+        partial = " (partial results: scan timed out and was stopped)" if timed_out else ""
+        message = (
+            f"SpiderFoot scan {root_outcome.scan_id} {root_outcome.status}: "
+            f"sent {len(objects)} STIX objects{partial}"
         )
+        if expanding:
+            message += (
+                f". Expansion: scans={scans_ok} depth={depth_reached} "
+                f"failed={len(failed)} out_of_scope={len(out_of_scope)} "
+                f"budget_skipped={len(budget_skipped)}"
+            )
+        return message
+
+    def _authorized(self, target: str) -> bool:
+        return is_allowed(target, self._settings.allowed_domains)
+
+    @staticmethod
+    def _expansion_note(objects, root, scans_ok, depth, failed, out_of_scope, budget_skipped):
+        identity_id = next(o.id for o in objects.values() if o.type == "identity")
+        lines = [
+            f"Expansion from {root}: scans run: {scans_ok}, max depth reached: {depth}.",
+            f"Failed sub-scans: {', '.join(failed) or 'none'}.",
+            f"Skipped, outside the allowlist (never scanned): {', '.join(out_of_scope) or 'none'}.",
+            f"Skipped, over the scan budget: {', '.join(budget_skipped) or 'none'}.",
+        ]
+        content = "\n".join(lines)
+        now = datetime.now(UTC)
+        return stix2.Note(
+            id=Note.generate_id(now.isoformat(), content),
+            created=now,
+            modified=now,
+            content=content,
+            abstract=f"SpiderFoot expansion summary for {root}",
+            object_refs=[stix2.DomainName(value=_norm(root)).id],
+            created_by_ref=identity_id,
+            allow_custom=True,
+        )
+
+
+def _norm(domain: str) -> str:
+    return domain.strip().lower().rstrip(".")
 
 
 def main() -> None:
