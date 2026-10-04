@@ -220,6 +220,7 @@ class SpiderFootEnrichment:
                 objects=list(objects.values()),
                 infra=root_mapped.infra,
                 dns=root_dns,
+                source_gaps=bool({m for m, _ in root_errors} & SUBDOMAIN_SOURCES),
             )
             unreadable = False
             try:

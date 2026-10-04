@@ -20,6 +20,9 @@ Success:
 - A failing read of the previous snapshot still writes the new snapshot and says the previous one could not be read; a failing write path never fails the enrichment.
 - Expansion sub-scans do not get their own snapshot; the root's snapshot covers the merged set.
 
+*Amended 2026-10-04 after two real consecutive scans of bugoverflow.com: the second found `www.bugoverflow.com` and 13 certificates the first had not, because crt.sh answered only the second time (and it cannot report outages).
+Hostname additions now carry "the previous scan's subdomain sources reported errors: this may only be newly visible" when the previous snapshot recorded source errors, and certificate additions carry "the previous scan had none: crt.sh may not have answered" when the previous snapshot had no certificates. The snapshot gained a `source_gaps` flag (older snapshots read as false).*
+
 Out of scope: WHOIS date changes (kept in Note text, not snapshotted), scheduling re-scans (OpenCTI enriches on demand or on entity events), alerting, history beyond the previous snapshot.
 
 ## Assumptions (approved by the user's standing instruction to proceed)
