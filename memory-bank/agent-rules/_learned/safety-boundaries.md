@@ -32,3 +32,8 @@ When you stop importing an entity type, read every lookup that used it as a link
 _derived_from: reflection/fix-infra-attribution.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When one scan covers several domains (a provider, a CNAME target), every event type that carries a domain's own records (MX, NS, WHOIS, TXT, registrar, certificates) must be filtered by `source_data`; when you add the filter to one type, audit all the others in the same pass.
+
+### automation-reuses-the-manual-path-and-keeps-the-same-gates
+_derived_from: reflection/watch-automation.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+An automatic trigger must go through the same request and the same authorization checks as the manual one (here the allowlist), require an explicit opt-in per target, default to off, and be capped, so automating cannot widen what is scanned.
