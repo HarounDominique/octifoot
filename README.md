@@ -17,6 +17,10 @@ OpenCTI analyst ──enrich──▶ octifoot ──HTTP API──▶ SpiderFoo
         └──── STIX 2.1 bundle ──┘
 ```
 
+## Is it worth it?
+
+See [docs/value-assessment.md](docs/value-assessment.md): an honest, evidence-based comparison with using SpiderFoot and OpenCTI separately, including where octifoot is weaker and how each claim was verified.
+
 ## Authorized use only
 
 Run it only against domains **you own or have written permission to investigate**. "Passive" is
