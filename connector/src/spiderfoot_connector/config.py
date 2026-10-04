@@ -27,6 +27,8 @@ class Settings:
     max_depth: int = 0
     max_scans: int = 5
     profile: str = "full"
+    watch_interval_minutes: int = 0  # 0 = automatic re-analysis off
+    watch_max_per_cycle: int = 3
     ui_url: str = (
         ""  # address of the SpiderFoot UI as the analyst's browser reaches it; "" = no links
     )
@@ -69,6 +71,16 @@ def load_settings(env: Mapping[str, str]) -> Settings:
     # lean was measured faster at identical imported objects (SPEC-fast-scan-profile, Deviations);
     # it only exists for the passive use case, so any other use case keeps the full module set.
     default_profile = "lean" if usecase == PASSIVE_USECASE else "full"
+    watch_raw = (env.get("SPIDERFOOT_WATCH_INTERVAL_MINUTES") or "0").strip()
+    try:
+        watch_interval = int(watch_raw)
+    except ValueError:
+        watch_interval = -1
+    if watch_interval != 0 and not 5 <= watch_interval <= 10080:
+        raise ConfigError(
+            "SPIDERFOOT_WATCH_INTERVAL_MINUTES must be 0 (off) or between 5 and 10080 minutes, "
+            f"got {watch_raw!r}"
+        )
     ui_url = (env.get("SPIDERFOOT_UI_URL") or "").strip().rstrip("/")
     if ui_url:
         parts = urlsplit(ui_url)
@@ -93,4 +105,6 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         max_scans=_int(env, "SPIDERFOOT_MAX_SCANS", 5, 1, 20),
         profile=profile,
         ui_url=ui_url,
+        watch_interval_minutes=watch_interval,
+        watch_max_per_cycle=_int(env, "SPIDERFOOT_WATCH_MAX_PER_CYCLE", 3, 1, 20),
     )

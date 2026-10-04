@@ -146,3 +146,30 @@ def test_blank_ui_url_means_no_links():
 def test_ui_url_must_be_http_or_https_with_a_host(bad):
     with pytest.raises(ConfigError, match="SPIDERFOOT_UI_URL"):
         load_settings({**BASE, "SPIDERFOOT_UI_URL": bad})
+
+
+# --- automatic re-analysis of watched domains ---
+
+
+def test_watch_is_off_by_default():
+    s = load_settings(BASE)
+    assert s.watch_interval_minutes == 0 and s.watch_max_per_cycle == 3
+
+
+def test_watch_interval_and_cap_are_read():
+    s = load_settings(
+        {**BASE, "SPIDERFOOT_WATCH_INTERVAL_MINUTES": "1440", "SPIDERFOOT_WATCH_MAX_PER_CYCLE": "5"}
+    )
+    assert s.watch_interval_minutes == 1440 and s.watch_max_per_cycle == 5
+
+
+@pytest.mark.parametrize("bad", ["1", "4", "10081", "-5", "soon"])
+def test_watch_interval_must_be_zero_or_between_five_minutes_and_a_week(bad):
+    with pytest.raises(ConfigError, match="SPIDERFOOT_WATCH_INTERVAL_MINUTES"):
+        load_settings({**BASE, "SPIDERFOOT_WATCH_INTERVAL_MINUTES": bad})
+
+
+@pytest.mark.parametrize("bad", ["0", "21"])
+def test_watch_cap_is_bounded(bad):
+    with pytest.raises(ConfigError, match="SPIDERFOOT_WATCH_MAX_PER_CYCLE"):
+        load_settings({**BASE, "SPIDERFOOT_WATCH_MAX_PER_CYCLE": bad})

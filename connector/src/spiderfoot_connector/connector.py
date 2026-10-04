@@ -1,6 +1,7 @@
 """OpenCTI INTERNAL_ENRICHMENT wiring: Domain-Name -> SpiderFoot scan -> STIX bundle."""
 
 import os
+import threading
 from collections import Counter
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -24,6 +25,7 @@ from spiderfoot_connector.expansion import plan_next
 from spiderfoot_connector.knowledge import Known, query_known, render_knowledge
 from spiderfoot_connector.mapper import map_events
 from spiderfoot_connector.profiles import SUBDOMAIN_SOURCES, lean_modules
+from spiderfoot_connector.watch import Watcher, ask_enrichment, query_watched, snapshot_time
 
 SUPPORTED_ENTITY = "Domain-Name"
 
@@ -310,6 +312,29 @@ def _norm(domain: str) -> str:
     return domain.strip().lower().rstrip(".")
 
 
+def _start_watcher(helper: Any, settings: Settings) -> None:
+    """Re-analyse domains labelled octifoot:watch every interval (off unless configured)."""
+    log = helper.connector_logger
+    interval = settings.watch_interval_minutes * 60
+    watcher = Watcher(
+        interval_seconds=interval,
+        max_per_cycle=settings.watch_max_per_cycle,
+        allowlist=settings.allowed_domains,
+        list_watched=lambda: query_watched(helper.api.query),
+        last_scan=lambda value: snapshot_time(helper.api.query, value),
+        ask=lambda object_id: ask_enrichment(helper.api.query, object_id, helper.connect_id),
+        log=lambda level, message, meta: getattr(log, level)(message, meta),
+    )
+    cycle = min(900.0, max(60.0, interval / 4))
+    threading.Thread(
+        target=watcher.serve, args=(threading.Event(), cycle), name="octifoot-watch", daemon=True
+    ).start()
+    log.info(
+        "Automatic re-analysis on",
+        {"every_minutes": settings.watch_interval_minutes, "cycle_s": cycle},
+    )
+
+
 def main() -> None:
     settings = load_settings(os.environ)
     helper = OpenCTIConnectorHelper({})
@@ -321,4 +346,6 @@ def main() -> None:
         knowledge_lookup=lambda values: query_known(helper.api.query, values),
         snapshot_lookup=lambda target: latest_snapshot(helper.api.query, target),
     )
+    if settings.watch_interval_minutes:
+        _start_watcher(helper, settings)
     helper.listen(message_callback=enrichment.process_message)
