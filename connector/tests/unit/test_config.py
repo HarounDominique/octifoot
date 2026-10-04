@@ -116,3 +116,33 @@ def test_lean_requires_passive_usecase():
     }
     with pytest.raises(ConfigError, match="lean"):
         load_settings(env)
+
+
+# --- address of the SpiderFoot UI for links from OpenCTI ---
+
+
+def test_ui_url_defaults_to_no_links():
+    assert load_settings(BASE).ui_url == ""
+
+
+def test_ui_url_is_read_and_loses_its_trailing_slash():
+    assert (
+        load_settings({**BASE, "SPIDERFOOT_UI_URL": "http://localhost:5001/"}).ui_url
+        == "http://localhost:5001"
+    )
+    assert (
+        load_settings({**BASE, "SPIDERFOOT_UI_URL": "https://sf.example.net"}).ui_url
+        == "https://sf.example.net"
+    )
+
+
+def test_blank_ui_url_means_no_links():
+    assert load_settings({**BASE, "SPIDERFOOT_UI_URL": "  "}).ui_url == ""
+
+
+@pytest.mark.parametrize(
+    "bad", ["localhost:5001", "ftp://sf:5001", "javascript:alert(1)", "http://"]
+)
+def test_ui_url_must_be_http_or_https_with_a_host(bad):
+    with pytest.raises(ConfigError, match="SPIDERFOOT_UI_URL"):
+        load_settings({**BASE, "SPIDERFOOT_UI_URL": bad})

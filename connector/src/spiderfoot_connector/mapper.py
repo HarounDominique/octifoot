@@ -152,22 +152,26 @@ def _is_domain(value: str) -> bool:
     return bool(_DOMAIN_RE.match(value))
 
 
-def _ref(scan_id: str, module: str) -> list[dict[str, str]]:
-    return [
-        {
-            "source_name": SOURCE_NAME,
-            "external_id": scan_id,
-            "description": f"SpiderFoot scan {scan_id}, module {module}",
-        }
-    ]
+def _ref(scan_id: str, module: str, scan_url: str = "") -> list[dict[str, str]]:
+    ref = {
+        "source_name": SOURCE_NAME,
+        "external_id": scan_id,
+        "description": f"SpiderFoot scan {scan_id}, module {module}",
+    }
+    if scan_url:  # one click from OpenCTI to the complete scan in SpiderFoot
+        ref["url"] = scan_url
+    return [ref]
 
 
-def _flag_ref(scan_id: str, feed: str, flag_module: str) -> dict[str, str]:
-    return {
+def _flag_ref(scan_id: str, feed: str, flag_module: str, scan_url: str = "") -> dict[str, str]:
+    ref = {
         "source_name": feed,
         "external_id": scan_id,
         "description": f"Flagged malicious by {feed} (SpiderFoot module {flag_module})",
     }
+    if scan_url:
+        ref["url"] = scan_url
+    return ref
 
 
 def _relationship(kind: str, source: Any, target: Any, identity_id: str, refs: list[dict]):
@@ -195,9 +199,11 @@ def map_events(
     scan_status: str = "FINISHED",
     timeout_seconds: int = 0,
     timed_out: bool = False,
+    ui_url: str = "",
 ) -> MapResult:
     """Convert SpiderFoot ``scanexportjsonmulti`` rows into STIX objects."""
     result = MapResult()
+    scan_url = f"{ui_url}/scaninfo?id={scan_id}" if ui_url else ""
     target = _norm_domain(target)
 
     identity = stix2.Identity(
@@ -222,7 +228,9 @@ def map_events(
         # Same STIX id as the bare observable, so OpenCTI merges the label onto the analyst's object.
         refs = []
         for feed, flag_module in flagged_names[target]:
-            refs += _ref(scan_id, flag_module) + [_flag_ref(scan_id, feed, flag_module)]
+            refs += _ref(scan_id, flag_module, scan_url) + [
+                _flag_ref(scan_id, feed, flag_module, scan_url)
+            ]
         target_obj = stix2.DomainName(
             value=target,
             allow_custom=True,
@@ -238,10 +246,10 @@ def map_events(
     def observable(
         factory, value: str, module: str, obs_score: int, flags: list[tuple[str, str]] = ()
     ):
-        refs = _ref(scan_id, module)
+        refs = _ref(scan_id, module, scan_url)
         extra = {}
         if flags:
-            refs += [_flag_ref(scan_id, feed, flag_module) for feed, flag_module in flags]
+            refs += [_flag_ref(scan_id, feed, flag_module, scan_url) for feed, flag_module in flags]
             extra["x_opencti_labels"] = [MALICIOUS_LABEL]
         obj = factory(
             value=value,
@@ -255,7 +263,7 @@ def map_events(
         return objects[obj.id]
 
     def relate(kind: str, source: Any, tgt: Any, module: str) -> None:
-        rel = _relationship(kind, source, tgt, identity.id, _ref(scan_id, module))
+        rel = _relationship(kind, source, tgt, identity.id, _ref(scan_id, module, scan_url))
         objects.setdefault(rel.id, rel)
 
     def autonomous_system(number: int, module: str):
@@ -263,7 +271,7 @@ def map_events(
             number=number,
             allow_custom=True,
             x_opencti_created_by_ref=identity.id,
-            x_opencti_external_references=_ref(scan_id, module),
+            x_opencti_external_references=_ref(scan_id, module, scan_url),
         )
         objects.setdefault(obj.id, obj)
         return objects[obj.id]
@@ -427,7 +435,7 @@ def map_events(
             validity_not_after=extra.get("not_after"),
             allow_custom=True,
             x_opencti_created_by_ref=identity.id,
-            x_opencti_external_references=_ref(scan_id, cert_module),
+            x_opencti_external_references=_ref(scan_id, cert_module, scan_url),
         )
         objects.setdefault(certificate.id, certificate)
         relate("related-to", certificate, target_obj, cert_module)
@@ -463,6 +471,7 @@ def map_events(
         subdomain_sources,
         dns_facts,
         _completeness(scan_status, timeout_seconds, timed_out),
+        scan_url,
     )
     note = stix2.Note(
         id=Note.generate_id(now.isoformat(), summary),
@@ -818,10 +827,12 @@ def _summary(
     subdomain_sources: frozenset[str] = frozenset(),
     dns_facts: DnsFacts | None = None,
     incomplete: str = "",
+    scan_url: str = "",
 ) -> str:
     kinds = Counter(o.type for o in objects.values() if o.type.endswith(("-name", "-addr")))
     lines = [
-        f"SpiderFoot scan {scan_id} for {target}.",
+        f"SpiderFoot scan {scan_id} for {target}."
+        + (f" Full results in SpiderFoot: {scan_url}" if scan_url else ""),
         *_findings_block(
             result, now, source_errors, subdomain_sources, target, dns_facts, incomplete
         ),

@@ -359,3 +359,40 @@ def test_the_snapshot_note_is_attached_to_the_root_target(helper):
     enrichment.process_message(message("example.com"))
     (note,) = snapshot_notes(helper)
     assert note["object_refs"] == [stix2.DomainName(value="example.com").id]
+
+
+# --- link to the full SpiderFoot scan ---
+
+
+def test_ui_url_from_settings_reaches_references_and_the_note(helper):
+    linked = load_settings(
+        {
+            "SPIDERFOOT_URL": "http://sf:5001",
+            "SPIDERFOOT_ALLOWED_DOMAINS": "example.com",
+            "SPIDERFOOT_PROFILE": "full",
+            "SPIDERFOOT_UI_URL": "http://localhost:5001",
+        }
+    )
+    client = MagicMock()
+    client.run_scan.return_value = ScanOutcome("ABC123", "FINISHED", EVENTS)
+    client.fetch_errors.return_value = []
+    SpiderFootEnrichment(helper, linked, client).process_message(message("example.com"))
+    url = "http://localhost:5001/scaninfo?id=ABC123"
+    objects = sent_bundle(helper)["objects"]
+    urls = {
+        r["url"]
+        for o in objects
+        for r in o.get("x_opencti_external_references", [])
+        if r.get("external_id") == "ABC123"
+    }
+    assert urls == {url}
+    assert any(
+        o["type"] == "note" and f"Full results in SpiderFoot: {url}" in o["content"]
+        for o in objects
+    )
+
+
+def test_without_ui_url_the_connector_adds_no_links(helper):
+    enrichment, _ = make(helper)
+    enrichment.process_message(message())
+    assert "Full results in SpiderFoot" not in " ".join(note_texts(helper))

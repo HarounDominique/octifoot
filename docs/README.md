@@ -93,6 +93,13 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### Link to the full SpiderFoot scan
+
+octifoot imports only part of a scan (the part that is safe and useful, 18 of SpiderFoot's 172 event types; the rest is counted as "unmapped"). The complete record stays in SpiderFoot's own database and UI, which runs in the same stack.
+With `SPIDERFOOT_UI_URL` set (the address your **browser** uses, `http://localhost:5001` by default in Compose; not the internal `SPIDERFOOT_URL`), every external reference octifoot creates carries a link to
+`<UI URL>/scaninfo?id=<scan id>` and the first line of each scan Note ends with `Full results in SpiderFoot: <that URL>`. From any object or Note in OpenCTI, one click opens the raw events, the co-hosted sites and everything the import left out.
+Empty means no links. The SpiderFoot UI has no authentication and is published on `127.0.0.1` only; do not expose it further without putting authentication in front. The link works only while the scan is still in SpiderFoot.
+
 ### What changed since the last scan
 
 Each enrichment of a root target writes a Note `octifoot snapshot for <target>: <summary>` (for example `3 changes since 2026-10-04`, `no changes since ...` or `first snapshot`). Its text lists, per category, what was
