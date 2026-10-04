@@ -64,6 +64,16 @@ IMPORTED = {
         "note",
         "Shared infrastructure: listed in the scan Note, never an object.",
     ),
+    "DOMAIN_WHOIS": (
+        "note",
+        "note",
+        "`WHOIS` line of the Note: dates, domain age, EPP status, DNSSEC; no registrant or contact data.",
+    ),
+    "DNS_TEXT": (
+        "note",
+        "note",
+        "`DNS TXT` line of the Note: SPF, DMARC policy, verification services; token values never printed.",
+    ),
     "DOMAIN_REGISTRAR": ("note", "note", "`Infrastructure` line of the Note."),
     "PROVIDER_HOSTING": ("note", "note", "`Infrastructure` line of the Note."),
     "PROVIDER_DNS": ("note", "note", "`Infrastructure` line of the Note."),
@@ -72,23 +82,11 @@ IMPORTED = {
 
 # Decisions backed by what real passive scans of three domains showed (see the task notes).
 DECISIONS = {
-    "DOMAIN_WHOIS": (
-        "planned",
-        "note",
-        "whois-dns-notes",
-        "Registration facts of the target (creation, expiry, update, status) are CTI context (domain age) with no STIX field: one Note line.",
-    ),
-    "DNS_TEXT": (
-        "planned",
-        "note",
-        "whois-dns-notes",
-        "TXT records of the target (SPF, DMARC, verification tokens) say who may send mail for it: one Note line.",
-    ),
     "WEB_ANALYTICS_ID": (
-        "planned",
-        "note",
-        "whois-dns-notes",
-        "Observed values were domain-verification tokens from the target's own TXT records; a pivot, summarised in the same Note line.",
+        "declined",
+        "",
+        "",
+        "Observed values repeated the domain-verification tokens already in `DNS_TEXT`, but with the TXT string as source: the domain is lost, so it cannot be attributed to the target.",
     ),
     "SSL_CERTIFICATE_RAW": (
         "planned",
