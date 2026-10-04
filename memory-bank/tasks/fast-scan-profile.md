@@ -34,9 +34,12 @@ Routing: designed-lite (module selection derived from metadata; design fixed in 
 - Acceptance rule (identical ids, >= 30 % faster on two domains) **not met**: only bugoverflow.com passes.
 - Dropped events are the discarded third-party ones (CO_HOSTED_SITE*, AFFILIATE_EMAILADDR, COUNTRY_NAME).
   Known loss: MALICIOUS_COHOST lines in the Note (listed 10→2 and 6→0).
-- Caveat: bugoverflow full ran 904 s against a 900 s harness timeout, so it may have been cut off and
-  the 58 % inflated. Not verified. registrolineas lean stayed at 352 s with 71 events, so a module still
-  in the lean list likely dominates; not investigated.
+- Verified afterwards (SpiderFoot scanstatus): bugoverflow full `635DE72C` ended **ABORTED** at the 900 s
+  harness timeout (partial). So the 58 % is a lower bound, and "identical objects" there was measured
+  against an incomplete full run. The other three scans FINISHED. `ab_scan.py` does not check
+  `timed_out`, so it could not flag this. registrolineas lean stayed at 352 s with 71 events, so a
+  module still in the lean list likely dominates; not investigated.
+- After rebuilding the connector, the container's effective profile is `lean` (checked with `load_settings`).
 - **Deviation, accepted by the user (Dominique Haroun) on 2026-10-04:** `lean` is the default despite the
   rule, judging 58 % on the larger domain and 11 % on the other worth it. Default is `lean` only with
   `SPIDERFOOT_USECASE=passive`; any other use case keeps `full`. `full` stays selectable.

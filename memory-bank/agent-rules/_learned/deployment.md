@@ -17,3 +17,8 @@ Pinning an old upstream git tag does not make its build reproducible today; veri
 _derived_from: reflection/spiderfoot-connector.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 Verification and polling scripts must select the job they just created by its id, never "the latest"; a stale match reports a false result.
+
+### measurement-harness-rejects-truncated-runs
+_derived_from: reflection/fast-scan-profile.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+A timing or A/B harness must treat a run that hit its timeout or ended ABORTED as invalid and say so in its verdict; never compute speedup or equality from a cut-off run.
