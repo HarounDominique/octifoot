@@ -1,7 +1,8 @@
 """Environment-driven settings. Fails fast so an unsafe config never starts."""
 
+import ipaddress
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
 from spiderfoot_connector.allowlist import parse_allowlist, validate_domain
@@ -36,6 +37,10 @@ class Settings:
     ui_url: str = (
         ""  # address of the SpiderFoot UI as the analyst's browser reaches it; "" = no links
     )
+    ui_token: str = field(default="", repr=False)  # control panel secret; "" = panel off
+    ui_port: int = 8099
+    ui_bind: str = "127.0.0.1"
+    ui_lang: str = "en"
 
 
 def _int(env: Mapping[str, str], key: str, default: int, lo: int, hi: int) -> int:
@@ -92,6 +97,21 @@ def load_settings(env: Mapping[str, str]) -> Settings:
             "SPIDERFOOT_WATCH_INTERVAL_MINUTES must be 0 (off) or between 5 and 10080 minutes, "
             f"got {watch_raw!r}"
         )
+    ui_token = (env.get("OCTIFOOT_UI_TOKEN") or "").strip()
+    if ui_token and len(ui_token) < 16:
+        raise ConfigError("OCTIFOOT_UI_TOKEN must be at least 16 characters")
+    if ui_token and not (env.get("OCTIFOOT_STATE_DIR") or "").strip():
+        raise ConfigError(
+            "OCTIFOOT_UI_TOKEN needs OCTIFOOT_STATE_DIR (where the panel keeps its settings)"
+        )
+    ui_lang = (env.get("OCTIFOOT_UI_LANG") or "en").strip().lower()
+    if ui_lang not in ("en", "es"):
+        raise ConfigError(f"OCTIFOOT_UI_LANG must be en or es, got {ui_lang!r}")
+    ui_bind = (env.get("OCTIFOOT_UI_BIND") or "127.0.0.1").strip()
+    try:
+        ipaddress.ip_address(ui_bind)
+    except ValueError as exc:
+        raise ConfigError(f"OCTIFOOT_UI_BIND must be an IP address, got {ui_bind!r}") from exc
     ui_url = (env.get("SPIDERFOOT_UI_URL") or "").strip().rstrip("/")
     if ui_url:
         parts = urlsplit(ui_url)
@@ -116,6 +136,10 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         max_scans=_int(env, "SPIDERFOOT_MAX_SCANS", 5, 1, 20),
         profile=profile,
         ui_url=ui_url,
+        ui_token=ui_token,
+        ui_port=_int(env, "OCTIFOOT_UI_PORT", 8099, 1, 65535),
+        ui_bind=ui_bind,
+        ui_lang=ui_lang,
         state_dir=(env.get("OCTIFOOT_STATE_DIR") or "").strip(),
         api_keys_file=(env.get("SPIDERFOOT_API_KEYS_FILE") or "").strip(),
         watch_interval_minutes=watch_interval,

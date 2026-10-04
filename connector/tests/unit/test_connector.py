@@ -641,3 +641,53 @@ def test_expansion_follows_subdomains_of_a_domain_added_in_the_panel(helper, tmp
         "added.example.net",
         "www.added.example.net",
     ]
+
+
+# --- the panel is started by main() only when configured ---
+
+
+def test_main_starts_the_panel_only_when_a_token_is_configured(monkeypatch, tmp_path):
+    from spiderfoot_connector import connector
+
+    started = {}
+
+    class FakePanel:
+        def __init__(self, store, token, **kwargs):
+            started["token"], started["kwargs"] = token, kwargs
+
+        def start(self):
+            started["running"] = True
+            return kwargs_port
+
+    kwargs_port = 8099
+    helper_obj = MagicMock()
+    monkeypatch.setattr(connector, "OpenCTIConnectorHelper", lambda *a, **k: helper_obj)
+    monkeypatch.setattr(connector, "PanelServer", FakePanel)
+    for key, value in {
+        "SPIDERFOOT_URL": "http://sf:5001",
+        "SPIDERFOOT_ALLOWED_DOMAINS": "example.com",
+        "OCTIFOOT_STATE_DIR": str(tmp_path / "state"),
+        "OCTIFOOT_UI_TOKEN": "0123456789abcdef0123",
+        "OCTIFOOT_UI_BIND": "0.0.0.0",
+    }.items():
+        monkeypatch.setenv(key, value)
+    connector.main()
+    assert started["running"] and started["token"] == "0123456789abcdef0123"
+    assert started["kwargs"]["host"] == "0.0.0.0" and started["kwargs"][
+        "base_domains"
+    ] == frozenset({"example.com"})
+    assert "0123456789abcdef0123" not in str(helper_obj.connector_logger.mock_calls)
+
+
+def test_main_does_not_start_a_panel_without_a_token(monkeypatch, tmp_path):
+    from spiderfoot_connector import connector
+
+    def must_not_start(*args, **kwargs):
+        raise AssertionError("the panel started without a token")
+
+    monkeypatch.setattr(connector, "OpenCTIConnectorHelper", lambda *a, **k: MagicMock())
+    monkeypatch.setattr(connector, "PanelServer", must_not_start)
+    monkeypatch.setenv("SPIDERFOOT_URL", "http://sf:5001")
+    monkeypatch.setenv("SPIDERFOOT_ALLOWED_DOMAINS", "example.com")
+    monkeypatch.delenv("OCTIFOOT_UI_TOKEN", raising=False)
+    connector.main()

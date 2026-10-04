@@ -10,7 +10,7 @@ Routing: standard (security-sensitive, so the HTTP layer is tested against a rea
 
 - [x] Phase 1 — Domain validation (also for `.env`), runtime state store with audit log, effective allowlist and timeout (satisfies: SPEC-control-panel.md#objective, SPEC-control-panel.md#boundaries)
 - [x] Phase 2 — Connector and watcher use the runtime values (satisfies: SPEC-control-panel.md#objective)
-- [ ] Phase 3 — The web panel (standard library server, token, session, CSRF, Host check, throttling, headers, language) (satisfies: SPEC-control-panel.md#objective, SPEC-control-panel.md#boundaries)
+- [x] Phase 3 — The web panel (standard library server, token, session, CSRF, Host check, throttling, headers, language) (satisfies: SPEC-control-panel.md#objective, SPEC-control-panel.md#boundaries)
 - [ ] Phase 4 — Compose (port on localhost, volume), env example, documentation, live check (satisfies: SPEC-control-panel.md#test-strategy)
 
 ## Execution State

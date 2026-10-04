@@ -26,6 +26,7 @@ from spiderfoot_connector.dnschecks import DnsFacts, check_domain
 from spiderfoot_connector.expansion import plan_next
 from spiderfoot_connector.knowledge import Known, query_known, render_knowledge
 from spiderfoot_connector.mapper import map_events
+from spiderfoot_connector.panel import PanelServer
 from spiderfoot_connector.profiles import SUBDOMAIN_SOURCES, lean_modules_with, load_snapshot
 from spiderfoot_connector.runtime import RuntimeStore
 from spiderfoot_connector.watch import Watcher, ask_enrichment, query_watched, snapshot_time
@@ -390,6 +391,28 @@ def _load_configuration() -> tuple[Settings, KeyRing | None, RuntimeStore | None
     return settings, ring, runtime
 
 
+def _start_panel(helper: Any, settings: Settings, runtime: RuntimeStore) -> None:
+    """Serve the local control panel (domains and maximum time). The token is never logged."""
+    log = helper.connector_logger
+    panel = PanelServer(
+        runtime,
+        settings.ui_token,
+        base_domains=settings.allowed_domains,
+        base_timeout=settings.timeout_seconds,
+        host=settings.ui_bind,
+        port=settings.ui_port,
+        lang=settings.ui_lang,
+        log=lambda level, message, meta: getattr(log, level)(message, meta),
+    )
+    port = panel.start()
+    log.info("Control panel listening", {"bind": settings.ui_bind, "port": port})
+    if settings.ui_bind not in ("127.0.0.1", "::1"):
+        log.warning(
+            "Control panel bound beyond loopback: it is safe only if the port is published on 127.0.0.1",
+            {"bind": settings.ui_bind},
+        )
+
+
 def main() -> None:
     settings, key_ring, runtime = _load_configuration()
     helper = OpenCTIConnectorHelper({})
@@ -405,6 +428,8 @@ def main() -> None:
     )
     if key_ring is not None:  # names only, never values
         helper.connector_logger.info("API keys loaded", {"modules": sorted(key_ring.modules)})
+    if settings.ui_token and runtime is not None:
+        _start_panel(helper, settings, runtime)
     if settings.watch_interval_minutes:
         _start_watcher(helper, settings, runtime)
     helper.listen(message_callback=enrichment.process_message)
