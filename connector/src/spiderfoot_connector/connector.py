@@ -14,6 +14,7 @@ from spiderfoot_connector.client import SpiderFootClient, SpiderFootError
 from spiderfoot_connector.config import Settings, load_settings
 from spiderfoot_connector.dnschecks import DnsFacts, check_domain
 from spiderfoot_connector.expansion import plan_next
+from spiderfoot_connector.knowledge import Known, query_known, render_knowledge
 from spiderfoot_connector.mapper import map_events
 from spiderfoot_connector.profiles import SUBDOMAIN_SOURCES, lean_modules
 
@@ -31,11 +32,13 @@ class SpiderFootEnrichment:
         settings: Settings,
         client: SpiderFootClient,
         dns_check: Callable[[str], DnsFacts] | None = None,
+        knowledge_lookup: Callable[[list[str]], list[Known]] | None = None,
     ) -> None:
         self._helper = helper
         self._settings = settings
         self._client = client
         self._dns_check = dns_check
+        self._knowledge_lookup = knowledge_lookup
 
     def process_message(self, data: dict) -> str:
         entity = data["enrichment_entity"]
@@ -152,6 +155,10 @@ class SpiderFootEnrichment:
             )
             objects[note.id] = note
 
+        knowledge_note = self._knowledge_note(objects, root)
+        if knowledge_note is not None:
+            objects[knowledge_note.id] = knowledge_note
+
         bundle = stix2.Bundle(objects=list(objects.values()), allow_custom=True).serialize()
         self._helper.send_stix2_bundle(bundle)
 
@@ -170,6 +177,38 @@ class SpiderFootEnrichment:
 
     def _authorized(self, target: str) -> bool:
         return is_allowed(target, self._settings.allowed_domains)
+
+    def _knowledge_note(self, objects, root):
+        """Read what OpenCTI already holds about the imported observables (read-only, never fatal)."""
+        if self._knowledge_lookup is None:
+            return None
+        values = sorted(
+            {
+                o.value
+                for o in objects.values()
+                if o.type in ("domain-name", "ipv4-addr", "ipv6-addr", "email-addr")
+            }
+        )
+        try:
+            known = self._knowledge_lookup(values)
+        except Exception as exc:  # noqa: BLE001  a lookup must never fail the enrichment
+            self._helper.connector_logger.warning(
+                "OpenCTI knowledge lookup failed", {"error": str(exc)}
+            )
+            return None
+        abstract, content = render_knowledge(known, len(values))
+        identity_id = next(o.id for o in objects.values() if o.type == "identity")
+        now = datetime.now(UTC)
+        return stix2.Note(
+            id=Note.generate_id(now.isoformat(), content),
+            created=now,
+            modified=now,
+            content=content,
+            abstract=abstract,
+            object_refs=[stix2.DomainName(value=_norm(root)).id],
+            created_by_ref=identity_id,
+            allow_custom=True,
+        )
 
     @staticmethod
     def _expansion_note(objects, root, scans_ok, depth, failed, out_of_scope, budget_skipped):
@@ -202,6 +241,10 @@ def main() -> None:
     settings = load_settings(os.environ)
     helper = OpenCTIConnectorHelper({})
     enrichment = SpiderFootEnrichment(
-        helper, settings, SpiderFootClient(settings.base_url), dns_check=check_domain
+        helper,
+        settings,
+        SpiderFootClient(settings.base_url),
+        dns_check=check_domain,
+        knowledge_lookup=lambda values: query_known(helper.api.query, values),
     )
     helper.listen(message_callback=enrichment.process_message)

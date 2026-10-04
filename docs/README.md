@@ -93,6 +93,16 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### What OpenCTI already knows
+
+Before sending the bundle, the connector asks OpenCTI (one read-only, batched GraphQL query with its own token) about the imported domain names, IPs and emails and adds a Note,
+`OpenCTI knowledge (queried by octifoot before this import; excludes SpiderFoot's own objects)`, attached to the scanned domain. It lists what **other sources** attach to those observables:
+non-revoked indicators (with the highest score), reports, labels other than `spiderfoot:*`, and a creator other than SpiderFoot. With nothing, it says `none of the N imported observables has indicators, reports or labels from other sources in OpenCTI`.
+The abstract carries the counts, so the Notes list shows at a glance whether a scan touched things you already track.
+
+This is the direction the data flows back: SpiderFoot finds, OpenCTI correlates. Objects octifoot created itself never count (a previous import is not knowledge), and nothing in the graph is modified by the lookup.
+A failing lookup never fails the enrichment. Acting on the knowledge (raising scores, seeding scans from related entities) is not done.
+
 ### DNS checks
 
 For the root target of an enrichment (not for expansion sub-scans) the connector itself asks the resolver for MX, SPF (TXT), `_dmarc` TXT, CAA, DS and `_mta-sts` TXT of the scanned name and adds
