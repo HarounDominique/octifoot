@@ -103,7 +103,7 @@ Each answer is *found*, *none* (NXDOMAIN or an empty answer) or *unknown* (timeo
 so DMARC inherited from an organisational domain is not modelled. A failing check never fails the enrichment.
 
 With these facts the mail findings rest on the target's own MX: `receives mail but publishes no SPF record`, `no DMARC record at _dmarc.<name>`, `DMARC policy is p=none`, `SPF ends in +all/?all`; a name with no MX gets none of them.
-If the MX lookup itself fails, the earlier inference from scan events applies, with its disclaimer.
+If the MX lookup itself fails, the earlier inference from scan events applies, with its disclaimer; it uses only records of the scanned name itself, never a parent zone's, so expansion sub-scans do not repeat the root's finding.
 
 ### Key findings
 
@@ -114,7 +114,7 @@ It appears right after the first line; with nothing notable it reads `Key findin
 |---|---|
 | Flagged | the target or an imported hostname/IP carries the malicious label |
 | Mail without SPF | mail hosts known, DNS answered for the target, no `v=spf1` record (DMARC is not checked by SpiderFoot, so it is never claimed) |
-| Certificate | an imported certificate expired, or expires within 14 days |
+| Certificate | the newest imported certificate per subject CN is expired, or expires within 14 days (older ones are rotation history) |
 | Newly registered | created less than 30 days before the scan |
 | Registration expiring | expires within 30 days, or already expired |
 | Shared infrastructure listed | reputation listings on subnets or co-hosts (not the target's own) |
@@ -125,8 +125,9 @@ No object, label or score is derived from findings (a label such as "newly regis
 ### TLS certificates
 
 `SSL_CERTIFICATE_RAW` (certificates found through crt.sh) becomes a STIX `x509-certificate` with serial number, issuer, subject, validity and signature algorithm,
-`related-to` the scanned domain. Only when the subject CN is the target, a wildcard of it, a name under it, or its parent: a certificate can list other customers' names,
-so certificates for anything else are counted under Unmapped as "not the target's" and names inside certificates never become domain objects.
+`related-to` the scanned domain. A certificate is the target's when SpiderFoot's event names the scanned name as the one crt.sh was queried for (`source_data`: every returned certificate has that name in its subject or SAN)
+or when its CN is the target, a wildcard of it, a name under it, or its parent. The subject can therefore be another domain of the same owner (in a real scan all 53 certificates had CN `digi.ninja` and the target only as a SAN).
+Certificates returned for any other queried name are counted under Unmapped as "not the target's". Names inside certificates never become domain objects (a shared certificate can list other customers).
 At most 10 are imported (most recent `Not Before` first) and the Note says how many were left out (`TLS certificates: N imported, M over the cap of 10, K not issued for the target`).
 SpiderFoot truncates the certificate text at 1024 characters, so the SAN list and extensions are not available. The object id comes from the serial number.
 crt.sh is frequently unavailable (HTTP 502), in which case there are simply no certificates; see Source health above.
