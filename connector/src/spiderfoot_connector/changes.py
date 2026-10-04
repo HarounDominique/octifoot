@@ -170,7 +170,7 @@ def summarize(prev: Snapshot | None, cur: Snapshot, failed_sources: bool = False
     both_complete = prev.complete and cur.complete
     lines = _diff_lines(prev, cur, both_complete, failed_sources)
     if lines:
-        return f"{len(lines)} changes since {prev.at[:10]}"
+        return f"{len(lines)} change{'' if len(lines) == 1 else 's'} since {prev.at[:10]}"
     return (
         f"no changes since {prev.at[:10]}"
         if both_complete

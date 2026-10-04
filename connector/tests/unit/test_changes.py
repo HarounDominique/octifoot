@@ -83,6 +83,18 @@ def test_nothing_added_by_an_incomplete_scan_is_not_reported_as_no_changes():
     )
 
 
+def test_summary_counts_with_correct_grammar():
+    from spiderfoot_connector.changes import summarize
+
+    prev = snap()
+    assert (
+        summarize(prev, snap(scan="S2", ips=["203.0.113.1", "203.0.113.2"]))
+        == "1 change since 2026-10-04"
+    )
+    two = snap(scan="S2", ips=["203.0.113.1", "203.0.113.2"], emails=["a@example.com"])
+    assert summarize(prev, two) == "2 changes since 2026-10-04"
+
+
 def test_summary_of_an_incomplete_comparison_does_not_say_no_changes():
     from spiderfoot_connector.changes import summarize
 

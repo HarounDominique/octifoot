@@ -24,7 +24,7 @@ _derived_from: reflection/iterative-scan-loop.md, reflection/asn-enrichment.md, 
 When a change adds fields a downstream system ingests, import them into the real system once and read them back; asserting the generated object does not prove the system kept it (OpenCTI silently drops external references without external_id or url).
 
 ### replay-recorded-events-when-upstream-is-nondeterministic
-_derived_from: reflection/iterative-scan-loop.md, reflection/reputation-and-infra-notes.md, reflection/x509-certificates.md, reflection/fix-cert-and-mail-attribution.md · evidence_count: 4 · last_validated: 2026-10-04_
+_derived_from: reflection/iterative-scan-loop.md, reflection/reputation-and-infra-notes.md, reflection/x509-certificates.md, reflection/fix-cert-and-mail-attribution.md, reflection/scan-changes.md · evidence_count: 5 · last_validated: 2026-10-04_
 
 If a third-party source gives different results per run, save the real events from a run that exhibits the case and replay them through the code into the real target, instead of waiting for a fresh run to reproduce it.
 
