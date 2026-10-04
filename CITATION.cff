@@ -1,0 +1,53 @@
+cff-version: 1.2.0
+message: "If you use octifoot in your work, please cite it using the metadata below."
+title: "octifoot: an OpenCTI internal-enrichment connector backed by SpiderFoot"
+type: software
+authors:
+  - family-names: Haroun
+    given-names: Dominique
+repository-code: "https://github.com/HarounDominique/octifoot"
+license: Apache-2.0
+version: 0.1.0
+date-released: 2026-10-04
+abstract: >-
+  An OpenCTI internal-enrichment connector that runs passive SpiderFoot scans on authorized
+  domains and imports the findings as STIX 2.1 objects with provenance.
+keywords:
+  - OpenCTI
+  - SpiderFoot
+  - OSINT
+  - cyber threat intelligence
+  - STIX
+references:
+  - type: software
+    title: "SpiderFoot"
+    version: "4.0"
+    authors:
+      - family-names: Micallef
+        given-names: Steve
+    repository-code: "https://github.com/smicallef/spiderfoot"
+    license: GPL-2.0-only
+    notes: "License of the v4.0 tag used by octifoot; upstream master is MIT."
+  - type: software
+    title: "OpenCTI"
+    version: "7.261002.0"
+    authors:
+      - name: "Filigran SAS"
+    repository-code: "https://github.com/OpenCTI-Platform/opencti"
+    license: Apache-2.0
+    notes: "Community Edition."
+  - type: standard
+    title: "STIX Version 2.1"
+    authors:
+      - family-names: Jordan
+        given-names: Bret
+      - family-names: Piazza
+        given-names: Rich
+      - family-names: Darley
+        given-names: Trey
+    publisher:
+      name: "OASIS Open"
+    year: 2021
+    date-released: 2021-06-10
+    url: "https://docs.oasis-open.org/cti/stix/v2.1/os/stix-v2.1-os.html"
+    notes: "OASIS Standard."

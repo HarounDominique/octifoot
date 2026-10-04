@@ -1,0 +1,14 @@
+octifoot
+Copyright 2026 Dominique Haroun
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It is an independent project. It is not affiliated with, endorsed by, or sponsored by
+Filigran SAS (OpenCTI), the SpiderFoot authors, or OASIS. "OpenCTI" and "SpiderFoot" are names
+of their respective owners and are used here only to say which software this connector works with.
+
+This repository does not contain or redistribute the source code or binaries of OpenCTI,
+SpiderFoot, or the other services it deploys. It contains a Dockerfile that downloads the
+unmodified SpiderFoot v4.0 source from its upstream repository at build time, and one data file
+derived from that source's module metadata. See THIRD_PARTY_NOTICES.md for every component, its
+license, and what that means for you.

@@ -7,10 +7,16 @@ name = "spiderfoot-connector"
 version = "0.1.0"
 description = "OpenCTI internal-enrichment connector backed by SpiderFoot (passive OSINT)"
 requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [{name = "Dominique Haroun"}]
+classifiers = ["License :: OSI Approved :: Apache Software License"]
 dependencies = [
     "pycti==7.261002.0",
     "requests>=2.31",
 ]
+
+[project.urls]
+Repository = "https://github.com/HarounDominique/octifoot"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "responses>=0.25", "ruff>=0.6"]
