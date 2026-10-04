@@ -173,3 +173,31 @@ def test_watch_interval_must_be_zero_or_between_five_minutes_and_a_week(bad):
 def test_watch_cap_is_bounded(bad):
     with pytest.raises(ConfigError, match="SPIDERFOOT_WATCH_MAX_PER_CYCLE"):
         load_settings({**BASE, "SPIDERFOOT_WATCH_MAX_PER_CYCLE": bad})
+
+
+# --- the allowlist in .env is validated like the control panel's ---
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "com",
+        "co.uk",
+        "192.168.0.1",
+        "http://example.com",
+        "*.example.com",
+        "example.com/path",
+        "localhost",
+    ],
+)
+def test_an_unsafe_allowlist_entry_refuses_to_start_and_names_it(bad):
+    with pytest.raises(ConfigError) as err:
+        load_settings({**BASE, "SPIDERFOOT_ALLOWED_DOMAINS": f"example.com,{bad}"})
+    assert "SPIDERFOOT_ALLOWED_DOMAINS" in str(err.value) and bad in str(err.value)
+
+
+def test_valid_entries_keep_working_and_are_normalised():
+    s = load_settings(
+        {**BASE, "SPIDERFOOT_ALLOWED_DOMAINS": " Example.COM. , forocoches.com ,www.example.org"}
+    )
+    assert s.allowed_domains == frozenset({"example.com", "forocoches.com", "www.example.org"})

@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-from spiderfoot_connector.allowlist import parse_allowlist
+from spiderfoot_connector.allowlist import parse_allowlist, validate_domain
 from spiderfoot_connector.profiles import PROFILES
 
 PASSIVE_USECASE = "passive"
@@ -30,6 +30,9 @@ class Settings:
     api_keys_file: str = ""  # path to the JSON file of free API keys; "" = none
     watch_interval_minutes: int = 0  # 0 = automatic re-analysis off
     watch_max_per_cycle: int = 3
+    state_dir: str = (
+        ""  # where the control panel keeps its settings and audit log; "" = no run-time settings
+    )
     ui_url: str = (
         ""  # address of the SpiderFoot UI as the analyst's browser reaches it; "" = no links
     )
@@ -54,6 +57,13 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         raise ConfigError("SPIDERFOOT_URL is required")
 
     allowed = parse_allowlist(env.get("SPIDERFOOT_ALLOWED_DOMAINS"))
+    for entry in sorted(allowed):
+        try:
+            validate_domain(entry)
+        except ValueError as exc:
+            raise ConfigError(
+                f"SPIDERFOOT_ALLOWED_DOMAINS: {entry!r} is not usable: {exc}"
+            ) from exc
     if not allowed:
         raise ConfigError(
             "SPIDERFOOT_ALLOWED_DOMAINS is required: list the domains you are authorized to scan"
@@ -106,6 +116,7 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         max_scans=_int(env, "SPIDERFOOT_MAX_SCANS", 5, 1, 20),
         profile=profile,
         ui_url=ui_url,
+        state_dir=(env.get("OCTIFOOT_STATE_DIR") or "").strip(),
         api_keys_file=(env.get("SPIDERFOOT_API_KEYS_FILE") or "").strip(),
         watch_interval_minutes=watch_interval,
         watch_max_per_cycle=_int(env, "SPIDERFOOT_WATCH_MAX_PER_CYCLE", 3, 1, 20),

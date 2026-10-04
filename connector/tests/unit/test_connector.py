@@ -543,3 +543,101 @@ def test_a_missing_allowlist_also_stops_main_readably(monkeypatch, capsys):
     with pytest.raises(SystemExit) as exit_info:
         connector.main()
     assert exit_info.value.code == 2 and "SPIDERFOOT_ALLOWED_DOMAINS" in capsys.readouterr().err
+
+
+# --- values changed at run time from the control panel ---
+
+
+def runtime_enrichment(helper, store, settings=SETTINGS, outcome=None):
+    client = MagicMock()
+    client.run_scan.return_value = outcome or ScanOutcome("ABC123", "FINISHED", EVENTS)
+    client.fetch_errors.return_value = []
+    return SpiderFootEnrichment(helper, settings, client, runtime=store), client
+
+
+def test_a_domain_added_in_the_panel_can_be_analysed_without_touching_env(helper, tmp_path):
+    from spiderfoot_connector.runtime import RuntimeStore
+
+    store = RuntimeStore(tmp_path)
+    enrichment, client = runtime_enrichment(helper, store)
+    with pytest.raises(TargetNotAllowed):
+        enrichment.process_message(message("added.example.net"))
+    client.run_scan.assert_not_called()
+    store.add_domain("added.example.net", by="127.0.0.1")
+    enrichment.process_message(message("added.example.net"))
+    client.run_scan.assert_called_once()
+
+
+def test_a_domain_removed_in_the_panel_is_refused_again_before_any_scan(helper, tmp_path):
+    from spiderfoot_connector.runtime import RuntimeStore
+
+    store = RuntimeStore(tmp_path)
+    store.add_domain("added.example.net", by="127.0.0.1")
+    enrichment, client = runtime_enrichment(helper, store)
+    store.remove_domain("added.example.net", by="127.0.0.1")
+    with pytest.raises(TargetNotAllowed):
+        enrichment.process_message(message("added.example.net"))
+    client.run_scan.assert_not_called()
+
+
+def test_the_env_list_still_works_when_the_panel_list_is_empty(helper, tmp_path):
+    from spiderfoot_connector.runtime import RuntimeStore
+
+    enrichment, client = runtime_enrichment(helper, RuntimeStore(tmp_path))
+    enrichment.process_message(message("example.com"))
+    client.run_scan.assert_called_once()
+
+
+def test_the_maximum_time_set_in_the_panel_is_used_and_reported(helper, tmp_path):
+    from spiderfoot_connector.runtime import RuntimeStore
+
+    store = RuntimeStore(tmp_path)
+    store.set_timeout(1800, by="127.0.0.1")
+    enrichment, client = runtime_enrichment(
+        helper, store, outcome=ScanOutcome("ABC123", "ABORTED", EVENTS[:2], timed_out=True)
+    )
+    enrichment.process_message(message("example.com"))
+    assert client.run_scan.call_args.kwargs["timeout_seconds"] == 1800
+    assert any("stopped after 1800 s" in t for t in note_texts(helper))
+
+
+def test_without_an_override_the_env_timeout_applies(helper, tmp_path):
+    from spiderfoot_connector.runtime import RuntimeStore
+
+    enrichment, client = runtime_enrichment(helper, RuntimeStore(tmp_path))
+    enrichment.process_message(message("example.com"))
+    assert client.run_scan.call_args.kwargs["timeout_seconds"] == 900
+
+
+def test_expansion_follows_subdomains_of_a_domain_added_in_the_panel(helper, tmp_path):
+    from spiderfoot_connector.runtime import RuntimeStore
+
+    store = RuntimeStore(tmp_path)
+    store.add_domain("added.example.net", by="127.0.0.1")
+    settings = load_settings(
+        {
+            "SPIDERFOOT_URL": "http://sf:5001",
+            "SPIDERFOOT_ALLOWED_DOMAINS": "example.com",
+            "SPIDERFOOT_PROFILE": "full",
+            "SPIDERFOOT_MAX_DEPTH": "1",
+        }
+    )
+    root_events = [
+        {
+            "event_type": "INTERNET_NAME",
+            "data": "www.added.example.net",
+            "source_data": "added.example.net",
+            "module": "sfp_crt",
+            "false_positive": 0,
+        }
+    ]
+    enrichment, client = runtime_enrichment(helper, store, settings)
+    client.run_scan.side_effect = [
+        ScanOutcome("ROOT01", "FINISHED", root_events),
+        ScanOutcome("SUB001", "FINISHED", []),
+    ]
+    enrichment.process_message(message("added.example.net"))
+    assert [c.args[0] for c in client.run_scan.call_args_list] == [
+        "added.example.net",
+        "www.added.example.net",
+    ]

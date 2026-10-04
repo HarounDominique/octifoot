@@ -69,7 +69,7 @@ class Watcher:
         *,
         interval_seconds: float,
         max_per_cycle: int,
-        allowlist: frozenset[str],
+        allowlist: frozenset[str] | Callable[[], frozenset[str]],
         list_watched: Callable[[], list[tuple[str, str]]],
         last_scan: Callable[[str], datetime | None],
         ask: Callable[[str], Any],
@@ -78,7 +78,7 @@ class Watcher:
     ) -> None:
         self._interval = interval_seconds
         self._cap = max_per_cycle
-        self._allowlist = allowlist
+        self._allowlist = allowlist if callable(allowlist) else (lambda: allowlist)
         self._list = list_watched
         self._last_scan = last_scan
         self._ask = ask
@@ -97,7 +97,7 @@ class Watcher:
         due: list[tuple[datetime, str, str]] = []
         for object_id, raw in watched:
             value = _normalise(raw)
-            if not is_allowed(value, self._allowlist):
+            if not is_allowed(value, self._allowlist()):
                 self._log("warning", "Watch: skipped, not on the allowlist", {"target": value})
                 continue
             asked_at = self._asked.get(value)

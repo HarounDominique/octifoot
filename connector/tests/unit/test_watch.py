@@ -197,3 +197,34 @@ def test_ask_enrichment_requests_this_connectors_enrichment_on_the_observable():
     assert ask_enrichment(run, "obs-1", "connector-1") == "work-1"
     assert "askEnrichment" in seen["query"]
     assert seen["variables"] == {"id": "obs-1", "connector": "connector-1"}
+
+
+# --- the allowlist can change while the loop runs ---
+
+
+def test_the_allowlist_may_be_a_callable_read_at_every_cycle():
+    current = {"allow": frozenset({"example.com"})}
+    asked = []
+    w = Watcher(
+        interval_seconds=3600,
+        max_per_cycle=3,
+        allowlist=lambda: current["allow"],
+        list_watched=lambda: [("id1", "newly.example.net")],
+        last_scan=lambda value: None,
+        ask=asked.append,
+        clock=Clock(),
+    )
+    assert w.run_cycle() == [] and asked == []
+    current["allow"] = frozenset({"example.com", "example.net"})
+    assert w.run_cycle() == ["newly.example.net"] and asked == ["id1"]
+    current["allow"] = frozenset({"example.com"})
+    w2 = Watcher(
+        interval_seconds=3600,
+        max_per_cycle=3,
+        allowlist=lambda: current["allow"],
+        list_watched=lambda: [("id1", "newly.example.net")],
+        last_scan=lambda value: None,
+        ask=asked.append,
+        clock=Clock(),
+    )
+    assert w2.run_cycle() == []  # removed from the allowlist: no longer asked
