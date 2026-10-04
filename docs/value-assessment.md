@@ -2,8 +2,8 @@
 
 An honest assessment, written 2026-10-04 from what was measured while building and verifying the connector (the evidence is in `memory-bank/archive/`). It states what holds, what does not, and how each claim was verified.
 
-**Short answer.** For assessing a domain passively and without API keys: **yes, it is at least as valuable as running the two tools separately, and it adds things neither has.** For everything outside that scope (API-keyed sources, active modules,
-scheduled monitoring) **not yet**, and for some of its newest features the proof is still a fixture or a recorded scan, not months of use.
+**Short answer.** For assessing a domain passively: **yes, it is at least as valuable as running the two tools separately, and it adds things neither has.** Free API keys are supported but unproven with a real provider key, and active modules stay off unless you opt in;
+for some of its newest features the proof is still a fixture or a recorded scan, not months of use.
 
 ## What the user gets, side by side
 
@@ -18,9 +18,9 @@ scheduled monitoring) **not yet**, and for some of its newest features the proof
 | Say what OpenCTI already knows about what was just found | No | Only if you search each value | Manual | Yes: a Note listing indicators, reports and labels from other sources |
 | Say what changed since the last scan | No | No | Manual diff | Yes, with caveats when scans were incomplete or sources failed |
 | Say whether the scan itself was complete and its sources healthy | Logs only | n/a | Logs only | Yes, in the Note |
-| Use API-keyed sources (Shodan and others) | Yes, if keys are configured | n/a | Yes | **No**: 28 event types need keys, not wired |
+| Use API-keyed sources | Yes, if keys are configured | n/a | Yes | **Yes, optional, with your own free keys** (`docs/api-keys.md`): the 52 keyed modules that add data octifoot already imports. Plumbing verified against the real SpiderFoot; **never run with a real provider key**. The 28 event types only keyed modules produce for things octifoot does not import (ports, vulnerabilities...) stay unmapped but reachable through the SpiderFoot link |
 | Run active modules (port scans, zone transfers) | Yes | n/a | Yes | **Only by explicit opt-in** (`SPIDERFOOT_ALLOW_ACTIVE`); never by default |
-| Re-scan on a schedule and alert | No (open-source edition) | No | No | **No**: re-scans must be triggered |
+| Re-scan on a schedule | No (open-source edition) | No | No | **Yes, opt-in**: label a domain `octifoot:watch` and set an interval; proven live with two automatic runs. **No alerting**: the comparison Note is the record |
 
 ## What was measured
 
@@ -40,4 +40,4 @@ scheduled monitoring) **not yet**, and for some of its newest features the proof
 ## How to read this
 
 If you assess domains you are authorised to investigate, passively, today: octifoot gives you SpiderFoot's findings with attribution, an analyst summary, DNS checks, a memory of the last scan and a link to the full record, inside OpenCTI where they correlate.
-Treat the findings as leads to verify, not verdicts, and read the source-health and completeness lines first. If you need keyed sources or active scanning, or scheduled monitoring, use SpiderFoot directly for those parts or extend octifoot with your keys and an explicit decision.
+Treat the findings as leads to verify, not verdicts, and read the source-health and completeness lines first. If you want keyed sources, give octifoot your own free keys (it verifies each one by reading it back and never logs it); if you want active scanning, opt in explicitly on a domain you own, or use SpiderFoot directly for that part.

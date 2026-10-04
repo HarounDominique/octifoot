@@ -396,3 +396,150 @@ def test_without_ui_url_the_connector_adds_no_links(helper):
     enrichment, _ = make(helper)
     enrichment.process_message(message())
     assert "Full results in SpiderFoot" not in " ".join(note_texts(helper))
+
+
+# --- free API keys for keyed modules ---
+
+SECRET_KEY = "SENTINEL-KEY-VALUE-123"
+
+
+def lean_settings():
+    return load_settings(
+        {
+            "SPIDERFOOT_URL": "http://sf:5001",
+            "SPIDERFOOT_ALLOWED_DOMAINS": "example.com",
+            "SPIDERFOOT_PROFILE": "lean",
+        }
+    )
+
+
+def a_keyed_module():
+    from spiderfoot_connector.profiles import DENY, lean_modules, load_snapshot
+
+    snapshot, lean = load_snapshot(), set(lean_modules())
+    return min(
+        n
+        for n, m in snapshot.items()
+        if "apikey" in m["flags"]
+        and "Passive" in m["useCases"]
+        and not {"invasive", "tool"} & set(m["flags"])
+        and n not in DENY
+        and n not in lean
+    )
+
+
+def keyed_enrichment(helper, ring, *, api_works=True):
+    from spiderfoot_connector.apikeys import apply_keys  # noqa: F401  (import check)
+
+    client = MagicMock()
+    client.run_scan.return_value = ScanOutcome("ABC123", "FINISHED", EVENTS)
+    client.fetch_errors.return_value = []
+    data = {f"module.{name.split(':')[0]}.{name.split(':')[1]}": "" for name in ring.entries}
+    calls = []
+
+    def get_options():
+        calls.append("get")
+        if not api_works:
+            raise RuntimeError("settings API down")
+        return "tok", dict(data)
+
+    def save_options(options, token):
+        calls.append("save")
+        for name, value in options.items():
+            module, _, option = name.partition(":")
+            data[f"module.{module}.{option}"] = value
+
+    client.get_options.side_effect = get_options
+    client.save_options.side_effect = save_options
+    return SpiderFootEnrichment(helper, lean_settings(), client, key_ring=ring), client, calls
+
+
+def test_a_keyed_module_joins_the_scan_only_after_its_key_was_applied(helper):
+    from spiderfoot_connector.apikeys import KeyRing
+
+    module = a_keyed_module()
+    enrichment, client, calls = keyed_enrichment(helper, KeyRing({f"{module}:api_key": SECRET_KEY}))
+    enrichment.process_message(message("example.com"))
+    sent = client.run_scan.call_args.kwargs["modules"]
+    assert module in sent
+    assert calls.index("save") < len(calls)  # the key was written before the scan call
+
+
+def test_without_a_key_ring_nothing_touches_the_settings_api(helper):
+    enrichment, client = make(helper)
+    enrichment.process_message(message())
+    client.get_options.assert_not_called()
+    client.save_options.assert_not_called()
+
+
+def test_a_failing_settings_api_runs_the_scan_without_the_keyed_module(helper):
+    from spiderfoot_connector.apikeys import KeyRing
+    from spiderfoot_connector.profiles import lean_modules
+
+    module = a_keyed_module()
+    enrichment, client, _ = keyed_enrichment(
+        helper, KeyRing({f"{module}:api_key": SECRET_KEY}), api_works=False
+    )
+    enrichment.process_message(message("example.com"))
+    assert client.run_scan.call_args.kwargs["modules"] == lean_modules()
+    helper.send_stix2_bundle.assert_called_once()
+
+
+def test_the_key_value_never_reaches_notes_logs_or_the_work_message(helper):
+    from spiderfoot_connector.apikeys import KeyRing
+
+    module = a_keyed_module()
+    enrichment, _, _ = keyed_enrichment(helper, KeyRing({f"{module}:api_key": SECRET_KEY}))
+    result = enrichment.process_message(message("example.com"))
+    assert SECRET_KEY not in result
+    assert SECRET_KEY not in str(sent_bundle(helper))
+    assert SECRET_KEY not in str(helper.connector_logger.mock_calls)
+
+
+def test_a_key_that_could_not_be_stored_is_named_in_the_log_but_not_its_value(helper):
+    from spiderfoot_connector.apikeys import KeyRing
+
+    enrichment, _, _ = keyed_enrichment(helper, KeyRing({"sfp_not_there:api_key": SECRET_KEY}))
+    enrichment._client.get_options.side_effect = lambda: ("tok", {})  # the option does not exist
+    enrichment.process_message(message("example.com"))
+    logged = str(helper.connector_logger.mock_calls)
+    assert "sfp_not_there:api_key" in logged and SECRET_KEY not in logged
+
+
+# --- configuration errors must be readable and happen before the connector registers ---
+
+
+def test_a_bad_key_file_stops_main_with_a_readable_message_before_registering(
+    monkeypatch, tmp_path, capsys
+):
+    from spiderfoot_connector import connector
+
+    bad = tmp_path / "keys.json"
+    bad.write_text('{"sfp_nope": "' + SECRET_KEY + '"}')
+    monkeypatch.setenv("SPIDERFOOT_URL", "http://sf:5001")
+    monkeypatch.setenv("SPIDERFOOT_ALLOWED_DOMAINS", "example.com")
+    monkeypatch.setenv("SPIDERFOOT_API_KEYS_FILE", str(bad))
+
+    def must_not_register(*args, **kwargs):
+        raise AssertionError("the connector registered despite an invalid configuration")
+
+    monkeypatch.setattr(connector, "OpenCTIConnectorHelper", must_not_register)
+    with pytest.raises(SystemExit) as exit_info:
+        connector.main()
+    assert exit_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "configuration error" in err and "SPIDERFOOT_API_KEYS_FILE" in err and "sfp_nope" in err
+    assert SECRET_KEY not in err
+
+
+def test_a_missing_allowlist_also_stops_main_readably(monkeypatch, capsys):
+    from spiderfoot_connector import connector
+
+    monkeypatch.delenv("SPIDERFOOT_ALLOWED_DOMAINS", raising=False)
+    monkeypatch.setenv("SPIDERFOOT_URL", "http://sf:5001")
+    monkeypatch.setattr(
+        connector, "OpenCTIConnectorHelper", lambda *a, **k: (_ for _ in ()).throw(AssertionError())
+    )
+    with pytest.raises(SystemExit) as exit_info:
+        connector.main()
+    assert exit_info.value.code == 2 and "SPIDERFOOT_ALLOWED_DOMAINS" in capsys.readouterr().err

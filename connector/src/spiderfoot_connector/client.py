@@ -5,6 +5,7 @@ Endpoints used (verified against SpiderFoot's ``sfwebui.py``): ``startscan``,
 """
 
 import html
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -115,6 +116,28 @@ class SpiderFootClient:
         if not isinstance(data, list):
             raise SpiderFootError(f"unexpected export response: {type(data).__name__}")
         return data
+
+    def get_options(self) -> tuple[str, dict]:
+        """(CSRF token, options) from SpiderFoot; options are named ``module.<mod>.<opt>``. Each call issues a new token."""
+        data = self._request("GET", "optsraw")
+        if not (
+            isinstance(data, list)
+            and len(data) == 2
+            and data[0] == "SUCCESS"
+            and isinstance(data[1], dict)
+        ):
+            raise SpiderFootError("unexpected optsraw response")
+        return str(data[1]["token"]), dict(data[1]["data"])
+
+    def save_options(self, options: dict[str, str], token: str) -> None:
+        """Store options; names must be ``<mod>:<opt>`` (SpiderFoot answers SUCCESS to unknown names and stores nothing)."""
+        data = self._request(
+            "POST", "savesettingsraw", data={"allopts": json.dumps(options), "token": token}
+        )
+        if not (isinstance(data, list) and data and data[0] == "SUCCESS"):
+            raise SpiderFootError(
+                f"SpiderFoot refused the settings update: {data[1] if isinstance(data, list) and len(data) > 1 else 'unexpected response'}"
+            )
 
     def fetch_errors(self, scan_id: str) -> list[tuple[str, str]]:
         """(module, message) of the scan log's ERROR rows, oldest first, HTML entities decoded."""

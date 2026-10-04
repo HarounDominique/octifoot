@@ -59,7 +59,7 @@ _derived_from: reflection/key-findings.md, reflection/fix-additions-may-be-visib
 Before a rule says something is missing ("no SPF"), check with an independent tool that the upstream would have reported it if present, and never assert absence of something the upstream does not look for (here DMARC).
 
 ### compare-imported-values-with-ground-truth-in-live-checks
-_derived_from: reflection/fix-infra-attribution.md, reflection/dns-checks.md, reflection/fix-cert-and-mail-attribution.md · evidence_count: 3 · last_validated: 2026-10-04_
+_derived_from: reflection/fix-infra-attribution.md, reflection/dns-checks.md, reflection/fix-cert-and-mail-attribution.md, reflection/api-keys.md · evidence_count: 4 · last_validated: 2026-10-04_
 
 A live check must compare the imported values, and the inputs of any rule built on them, with an independent source for the real target (`dig`, `whois`); "the line appeared and the work completed" does not show the values belong to the target.
 
@@ -82,3 +82,8 @@ Before using a recorded scan as evidence, check that it finished (status and dur
 _derived_from: reflection/fix-additions-may-be-visibility.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When comparing two runs of a pipeline whose sources fail silently, an "addition" can be a source that answered this time; mark additions as possibly newly visible when the earlier run recorded source gaps, and test the diff on two real consecutive runs, not only on constructed ones.
+
+### verify-a-write-by-reading-it-back-when-the-api-answers-success-to-anything
+_derived_from: reflection/api-keys.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+When an upstream API answers SUCCESS to a settings write under a wrong or unknown name, check the name against what it reports, write under the form it actually stores, and read the value back before relying on it; test this against the real service, not a fake you wrote from your own assumption.
