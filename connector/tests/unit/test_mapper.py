@@ -29,8 +29,8 @@ def values(result, type_):
 
 
 def test_domains_mapped_deduped_and_lowercased(result):
-    # target + www (deduped across two modules) + affiliate; false positive dropped
-    assert values(result, "domain-name") == ["cdn.partner.net", "example.com", "www.example.com"]
+    # target + www (deduped across two modules); the affiliate name and the false positive are not imported
+    assert values(result, "domain-name") == ["example.com", "www.example.com"]
 
 
 def test_ips_mapped_invalid_skipped(result):
@@ -45,7 +45,11 @@ def test_email_lowercased(result):
 
 
 def test_unmapped_types_counted_not_emitted(result):
-    assert result.unmapped == {"TCP_PORT_OPEN": 1, "WEBSERVER_BANNER": 1}
+    assert result.unmapped == {
+        "TCP_PORT_OPEN": 1,
+        "WEBSERVER_BANNER": 1,
+        "AFFILIATE_INTERNET_NAME": 1,
+    }
     assert result.false_positives == 1
 
 
@@ -60,7 +64,7 @@ def test_ip_resolves_from_its_source_host(result):
     assert rels[(domains["example.com"], ips["198.51.100.7"])] == "resolves-to"
 
 
-def test_subdomain_email_affiliate_related_to_target(result):
+def test_subdomain_and_email_related_to_target(result):
     domains = {o.value: o.id for o in by_type(result, "domain-name")}
     emails = {o.value: o.id for o in by_type(result, "email-addr")}
     rels = {
@@ -69,7 +73,6 @@ def test_subdomain_email_affiliate_related_to_target(result):
     target = domains["example.com"]
     assert rels[(domains["www.example.com"], target)] == "related-to"
     assert rels[(emails["admin@example.com"], target)] == "related-to"
-    assert rels[(domains["cdn.partner.net"], target)] == "related-to"
 
 
 def test_provenance_on_every_observable(result):
@@ -84,14 +87,13 @@ def test_provenance_on_every_observable(result):
             assert "sfp_" in refs[0]["description"]
 
 
-def test_scores_affiliate_lower(result):
+def test_imported_domain_gets_the_configured_score(result):
     scores = {
         o.value: o.x_opencti_score
         for o in by_type(result, "domain-name")
         if o.value != "example.com"
     }
-    assert scores["www.example.com"] == 30
-    assert scores["cdn.partner.net"] == 15
+    assert scores == {"www.example.com": 30}
 
 
 def test_summary_note_references_target(result):
