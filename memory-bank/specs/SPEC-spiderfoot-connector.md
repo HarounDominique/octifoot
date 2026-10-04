@@ -1,6 +1,6 @@
 # SPEC: spiderfoot-connector
 
-Status: draft
+Status: approved
 
 ## Objective
 
@@ -17,7 +17,7 @@ Success:
 - A domain outside the allowlist is refused with a clear log line and no SpiderFoot call.
 - Re-running on the same domain creates no duplicate observables.
 
-Out of scope (v1): recursive/bidirectional investigations (OpenCTI triggering new scans
+Out of scope (v1; planned as phase 3, see Future): recursive/bidirectional investigations (OpenCTI triggering new scans
 from results), custom UI, person/profile/event modeling, active SpiderFoot modules,
 OpenCTI Enterprise Edition features, automated E2E tests.
 
@@ -130,3 +130,11 @@ def is_allowed(target: str, allowlist: frozenset[str]) -> bool:
 - Commit tokens, `.env`, or SpiderFoot/OpenCTI data volumes.
 - Use OpenCTI Enterprise Edition code or features.
 - Fork or vendor SpiderFoot/OpenCTI source into this repo.
+
+## Future (not in this spec)
+
+Phase 3 — iterative loop: SpiderFoot discovers → OpenCTI structures/correlates →
+newly found entities seed further SpiderFoot scans → OpenCTI consolidates with
+provenance. Needs its own spec: scope/allowlist propagation to discovered assets, depth
+and fan-out limits, dedupe of already-scanned targets. Also open: modeling non-CTI
+entities (persons, profiles, events) beyond OpenCTI's STIX model.
