@@ -15,7 +15,7 @@ import time
 from dataclasses import asdict
 from datetime import UTC, datetime
 
-from spiderfoot_connector.abcompare import compare_events, speedup
+from spiderfoot_connector.abcompare import compare_events, invalid_reasons, speedup
 from spiderfoot_connector.allowlist import is_allowed, parse_allowlist
 from spiderfoot_connector.client import SpiderFootClient
 from spiderfoot_connector.profiles import lean_modules
@@ -61,6 +61,7 @@ def main() -> int:
         now=datetime.now(UTC),
     )
     saved = speedup(secs_a, secs_b)
+    problems = invalid_reasons("full", out_a) + invalid_reasons("lean", out_b)
     report = {
         "target": args.target,
         "order": args.order,
@@ -69,7 +70,9 @@ def main() -> int:
         "speedup": saved,
         "identical_objects": comparison.identical,
         "comparison": asdict(comparison),
-        "accepted": comparison.identical and saved >= MIN_SPEEDUP,
+        "valid": not problems,
+        "invalid_reasons": problems,
+        "accepted": not problems and comparison.identical and saved >= MIN_SPEEDUP,
     }
     print(json.dumps(report, indent=2))
     return 0

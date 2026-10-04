@@ -36,6 +36,10 @@ NETBLOCK_EVENTS = {"NETBLOCK_MEMBER", "NETBLOCKV6_MEMBER"}
 AS_EVENT = "BGP_AS_MEMBER"
 MAX_ASN = 4_294_967_295
 
+# Every event type that ends up as an object, a label or a Note line. A scan profile must keep
+# producing all of these (checked against SpiderFoot's module metadata in the profile tests).
+IMPORTED_EVENTS = MAPPED_EVENTS | {FLAG_IP_EVENT} | LISTED_EVENTS | NETBLOCK_EVENTS | {AS_EVENT}
+
 
 @dataclass
 class MapResult:

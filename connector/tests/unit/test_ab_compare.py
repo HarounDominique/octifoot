@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
-from spiderfoot_connector.abcompare import compare_events, speedup
+from spiderfoot_connector.abcompare import compare_events, invalid_reasons, speedup
+from spiderfoot_connector.client import ScanOutcome
 
 NOW = datetime(2026, 10, 4, 6, 0, 0, tzinfo=UTC)
 
@@ -81,3 +82,25 @@ def test_speedup():
     assert speedup(375.0, 150.0) == 0.6
     assert speedup(100.0, 100.0) == 0.0
     assert speedup(0.0, 10.0) == 0.0
+
+
+# --- a cut-off or aborted run must never count as evidence ---
+
+
+def test_finished_run_has_no_invalid_reasons():
+    assert invalid_reasons("full", ScanOutcome("S1", "FINISHED", [])) == []
+
+
+def test_timed_out_run_is_invalid():
+    reasons = invalid_reasons("full", ScanOutcome("S1", "RUNNING", [], timed_out=True))
+    assert len(reasons) == 1 and "full" in reasons[0] and "timed out" in reasons[0]
+
+
+def test_aborted_run_is_invalid_even_without_the_timeout_flag():
+    reasons = invalid_reasons("lean", ScanOutcome("S2", "ABORTED", []))
+    assert len(reasons) == 1 and "lean" in reasons[0] and "ABORTED" in reasons[0]
+
+
+def test_run_that_is_both_timed_out_and_aborted_reports_each_problem_once():
+    reasons = invalid_reasons("full", ScanOutcome("S3", "ABORTED", [], timed_out=True))
+    assert len(reasons) == 2

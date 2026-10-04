@@ -83,6 +83,16 @@ def compare_events(
     )
 
 
+def invalid_reasons(label: str, outcome) -> list[str]:
+    """Why a run cannot be used as evidence: it was cut off by the timeout or SpiderFoot aborted it."""
+    reasons = []
+    if outcome.timed_out:
+        reasons.append(f"{label} run {outcome.scan_id} timed out before SpiderFoot finished it")
+    if outcome.status != "FINISHED" and not (outcome.timed_out and outcome.status == "RUNNING"):
+        reasons.append(f"{label} run {outcome.scan_id} ended {outcome.status}, not FINISHED")
+    return reasons
+
+
 def speedup(seconds_a: float, seconds_b: float) -> float:
     """Fraction of time saved by B relative to A (0.6 = 60% faster); negative if B is slower."""
     if seconds_a <= 0:

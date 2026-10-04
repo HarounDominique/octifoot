@@ -10,9 +10,21 @@ from functools import lru_cache
 from importlib import resources
 
 PROFILES = ("full", "lean")
-# Evidence-based (see SPEC-fast-scan-profile): robtex finds co-hosted sites and countryname
-# processes them, feeding a chain (dnsresolve -> whois -> email) whose output is discarded.
-DENY = frozenset({"sfp_robtex", "sfp_countryname"})
+# Evidence-based. robtex finds co-hosted sites and countryname processes them, feeding a chain
+# (dnsresolve -> whois -> email) whose output is discarded (SPEC-fast-scan-profile). The four
+# cloud-storage modules guess thousands of bucket names against third-party storage hosts and
+# their events are not imported; in scan E664397D sfp_s3bucket was the only module still running
+# 164 s after all others had finished (SPEC-ab-validity-and-cloud-bucket-deny).
+DENY = frozenset(
+    {
+        "sfp_robtex",
+        "sfp_countryname",
+        "sfp_s3bucket",
+        "sfp_azureblobstorage",
+        "sfp_digitaloceanspace",
+        "sfp_googleobjectstorage",
+    }
+)
 _SEED_EVENTS = frozenset({"ROOT", "DOMAIN_NAME", "INTERNET_NAME"})
 _EXCLUDED_FLAGS = frozenset({"apikey", "invasive", "tool"})
 
