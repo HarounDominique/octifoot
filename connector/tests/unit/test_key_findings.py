@@ -46,11 +46,16 @@ def findings(result):
     return lines[start], out
 
 
-def cert(cn="example.com", not_after="Dec 26 10:28:56 2026 GMT"):
+def cert(
+    cn="example.com",
+    not_after="Dec 26 10:28:56 2026 GMT",
+    not_before="Sep 27 09:29:10 2026 GMT",
+    serial="17:db:50:1d",
+):
     return (
-        "Certificate:\n    Data:\n        Serial Number:\n            17:db:50:1d\n"
+        f"Certificate:\n    Data:\n        Serial Number:\n            {serial}\n"
         "        Issuer: C=US, O=Example Trust, CN=WE1\n        Validity\n"
-        f"            Not Before: Sep 27 09:29:10 2026 GMT\n            Not After : {not_after}\n"
+        f"            Not Before: {not_before}\n            Not After : {not_after}\n"
         f"        Subject: CN={cn}\n"
     )
 
@@ -111,6 +116,32 @@ def test_registration_expiring_soon_and_not_when_far():
 def test_expired_registration_is_reported():
     _, items = findings(run([ev("DOMAIN_WHOIS", WHOIS.format(c="2020-01-01", e="2026-09-01"))]))
     assert items == ["registration expired on 2026-09-01"]
+
+
+def test_only_the_newest_certificate_per_cn_is_judged():
+    old_expired = cert(
+        not_before="Sep 27 09:29:10 2024 GMT", not_after="Sep 01 00:00:00 2025 GMT", serial="11:11"
+    )
+    healthy_new = cert(serial="99:99")
+    # same CN, newer and healthy: the old expired one is rotation history, not a finding
+    events = [ev("SSL_CERTIFICATE_RAW", old_expired), ev("SSL_CERTIFICATE_RAW", healthy_new)]
+    assert findings(run(events))[1] == []
+
+
+def test_the_newest_certificate_being_expired_is_a_finding():
+    older = cert(
+        not_before="Sep 27 09:29:10 2024 GMT", not_after="Sep 01 00:00:00 2025 GMT", serial="11:11"
+    )
+    newest = cert(not_after="Sep 01 00:00:00 2026 GMT", serial="99:99")
+    events = [ev("SSL_CERTIFICATE_RAW", older), ev("SSL_CERTIFICATE_RAW", newest)]
+    assert findings(run(events))[1] == ["certificate for example.com expired on 2026-09-01"]
+
+
+def test_each_cn_is_judged_on_its_own_newest_certificate():
+    a = cert(cn="a.example.com", not_after="Sep 01 00:00:00 2026 GMT", serial="aa:aa")
+    b = cert(cn="b.example.com", serial="bb:bb")
+    got = findings(run([ev("SSL_CERTIFICATE_RAW", a), ev("SSL_CERTIFICATE_RAW", b)]))[1]
+    assert got == ["certificate for a.example.com expired on 2026-09-01"]
 
 
 def test_certificate_expired_and_expiring_and_healthy():
@@ -175,6 +206,26 @@ def test_no_mail_hosts_means_no_spf_finding():
 
 def test_no_dns_answer_for_the_target_means_no_spf_finding():
     assert findings(run([ev("PROVIDER_MAIL", "mx1.mail.example")]))[1] == []
+
+
+def test_mail_fallback_ignores_parent_domain_records_for_a_subdomain_target():
+    events = [
+        ev("PROVIDER_MAIL", "mx1.mail.example", source="example.com"),
+        ev("RAW_DNS_RECORDS", "example.com. 300 IN MX 10 mx1.mail.example.", source="example.com"),
+    ]
+    assert findings(run(events, target="www.example.com"))[1] == []
+
+
+def test_mail_fallback_uses_records_of_the_scanned_name_itself():
+    events = [
+        ev("PROVIDER_MAIL", "mx1.mail.example", source="www.example.com"),
+        ev(
+            "RAW_DNS_RECORDS",
+            "www.example.com. 300 IN MX 10 mx1.mail.example.",
+            source="www.example.com",
+        ),
+    ]
+    assert len(findings(run(events, target="www.example.com"))[1]) == 1
 
 
 def test_raw_dns_of_a_third_party_does_not_count_as_the_targets_answer():

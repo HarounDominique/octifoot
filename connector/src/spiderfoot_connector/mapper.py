@@ -117,9 +117,13 @@ class MapResult:
     certs_imported: int = 0
     certs_over_cap: int = 0
     certs_foreign: int = 0
-    dns_raw_seen: bool = False  # SpiderFoot got DNS answers for the target
+    dns_raw_seen: bool = False  # SpiderFoot got DNS answers for exactly the scanned name
     flagged: list[tuple[str, list[str]]] = field(default_factory=list)  # (host or IP, feeds)
-    cert_info: list[tuple[str, datetime | None]] = field(default_factory=list)  # (CN, not_after)
+    # (CN, not_before, not_after) of the imported certificates
+    cert_info: list[tuple[str, datetime | None, datetime | None]] = field(default_factory=list)
+    mail_exact: set[str] = field(
+        default_factory=set
+    )  # mail hosts from records of the scanned name itself
     discovered_domains: list[str] = field(default_factory=list)  # INTERNET_NAME, in order
     as_ips: dict[int, set[str]] = field(default_factory=dict)  # ASN -> imported IPs in it
     listed: list[tuple[str, str, str]] = field(default_factory=list)  # (event, feed, value)
@@ -292,7 +296,10 @@ def map_events(
             cert = _parse_cert(data)
             if cert is None:
                 result.invalid += 1
-            elif not _cert_covers(cert["cn"], target):
+            elif not (
+                _norm_domain(str(ev.get("source_data", ""))) == target
+                or _cert_covers(cert["cn"], target)
+            ):
                 result.certs_foreign += 1
                 result.unmapped[f"{etype} (not the target's)"] += 1
             else:
@@ -307,6 +314,8 @@ def map_events(
                 result.unmapped[f"{etype} (not the target's)"] += 1
             else:
                 _add_infra(result, etype, data)
+                if etype == "PROVIDER_MAIL" and _norm_domain(source) == target:
+                    result.mail_exact.add(_infra_value(etype, data))
             continue
         if etype == FLAG_IP_EVENT or etype in LISTED_EVENTS:
             parsed = parse_feed_event(data)
@@ -337,9 +346,7 @@ def map_events(
             else:
                 as_of_block[str(ev.get("source_data", "")).strip()] = (number, module)
             continue
-        if etype == "RAW_DNS_RECORDS" and _is_target_or_parent(
-            str(ev.get("source_data", "")), target
-        ):
+        if etype == "RAW_DNS_RECORDS" and _norm_domain(str(ev.get("source_data", ""))) == target:
             result.dns_raw_seen = True
         if etype not in MAPPED_EVENTS:
             if etype == AFFILIATE_NAME_EVENT:
@@ -422,7 +429,7 @@ def map_events(
         objects.setdefault(certificate.id, certificate)
         relate("related-to", certificate, target_obj, cert_module)
         result.certs_imported += 1
-        result.cert_info.append((parsed["cn"], parsed.get("not_after")))
+        result.cert_info.append((parsed["cn"], parsed.get("not_before"), parsed.get("not_after")))
 
     emitted_ips = {o.value for o in objects.values() if o.type in ("ipv4-addr", "ipv6-addr")}
     for source, data in pending_hosting:
@@ -644,7 +651,8 @@ def _mail_findings(result: MapResult, target: str, dns: DnsFacts | None) -> list
         elif dns.dmarc and dmarc_policy(dns.dmarc) == "none":
             out.append("DMARC policy is p=none (spoofed mail is only monitored, not rejected)")
         return out
-    mail = sorted(result.infra.get("mail", ()))
+    # Fallback: only records of the scanned name itself; a parent zone's mail is not this name's.
+    mail = sorted(result.mail_exact)
     if mail and result.dns_raw_seen and not result.txt_spf:
         gap = "publishes no SPF record (DNS answered; DMARC is not checked by SpiderFoot)"
         return [f"receives mail (MX: {', '.join(mail[:2])}) but {gap}"]
@@ -672,7 +680,12 @@ def _findings(
             + (f" and {extra} more" if extra > 0 else "")
         )
     out.extend(_mail_findings(result, target, dns_facts))
-    for cn, not_after in sorted(result.cert_info, key=lambda c: c[0]):
+    newest: dict[str, tuple[datetime | None, datetime | None]] = {}
+    floor = datetime.min.replace(tzinfo=UTC)
+    for cn, not_before, not_after in result.cert_info:
+        if cn not in newest or (not_before or floor) > (newest[cn][0] or floor):
+            newest[cn] = (not_before, not_after)
+    for cn, (_, not_after) in sorted(newest.items()):  # older certificates are rotation history
         if not_after is None:
             continue
         days = (not_after.date() - today).days

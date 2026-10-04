@@ -45,6 +45,9 @@ Real data: map the recorded event; compare ids with the old mapper. Live: replay
 
 ## Boundaries
 
-**Always**: tie a certificate to the target by its subject CN; report what was left out.
+**Always**: tie a certificate to the target by the name crt.sh was queried for or by its subject CN; report what was left out.
 **Ask first**: creating objects from SAN names; fetching certificates directly.
-**Never**: import a certificate whose subject is not the target or a name under it; create domain objects from certificate names.
+**Never**: create domain objects from certificate names.
+
+*(Amended 2026-10-04 by [SPEC-fix-cert-and-mail-attribution.md](SPEC-fix-cert-and-mail-attribution.md): the original boundary "never import a certificate whose subject is not the target" rejected all 53 real
+certificates of zonetransfer.me, whose CN is another domain of the same owner and whose SAN (truncated upstream) lists the target.)*

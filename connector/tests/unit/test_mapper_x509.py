@@ -85,11 +85,34 @@ def test_parent_domain_certificate_is_accepted_for_a_subdomain_target():
     )
 
 
-def test_certificate_for_another_name_is_not_imported_and_is_counted():
+def test_certificate_returned_for_another_name_with_another_cn_is_not_imported_and_is_counted():
     for cn in ("other.net", "notexample.com", "example.com.evil.net", "sibling.example.com"):
-        r = run([ev(cert(cn=cn))], target="www.example.com")
+        r = run([ev(cert(cn=cn), source="provider.net")], target="www.example.com")
         assert not certs(r), cn
         assert r.unmapped["SSL_CERTIFICATE_RAW (not the target's)"] == 1, cn
+
+
+def test_certificate_listing_the_target_in_its_san_is_accepted_by_the_query_source():
+    # real case: CN is the owner's other domain, the target is only a SAN (truncated away upstream)
+    r = run([ev(cert(cn="other-domain-of-the-owner.net", serial="00:aa"), source="example.com")])
+    (c,) = certs(r)
+    assert c.subject == "CN=other-domain-of-the-owner.net"
+    rels = [o for o in r.objects if o.type == "relationship" and o.source_ref == c.id]
+    assert len(rels) == 1 and rels[0].relationship_type == "related-to"
+    assert "other-domain-of-the-owner.net" not in {
+        o.value for o in r.objects if o.type == "domain-name"
+    }
+
+
+def test_parent_sourced_certificate_with_a_foreign_cn_is_not_imported_for_a_subdomain_target():
+    r = run([ev(cert(cn="other.net"), source="example.com")], target="www.example.com")
+    assert not certs(r)
+    assert r.unmapped["SSL_CERTIFICATE_RAW (not the target's)"] == 1
+
+
+def test_parent_sourced_certificate_with_a_covering_cn_is_still_imported_for_a_subdomain_target():
+    r = run([ev(cert(cn="*.example.com"), source="example.com")], target="www.example.com")
+    assert len(certs(r)) == 1
 
 
 def test_names_never_become_domain_objects():
@@ -129,7 +152,7 @@ def test_at_most_ten_most_recent_certificates_are_imported_and_the_rest_counted(
 
 
 def test_note_line_reports_counts_and_what_was_not_the_targets():
-    r = run([ev(cert()), ev(cert(serial="00:99", cn="other.net"))])
+    r = run([ev(cert()), ev(cert(serial="00:99", cn="other.net"), source="provider.net")])
     assert (
         "TLS certificates: 1 imported, 0 over the cap of 10, 1 not issued for the target" in note(r)
     )
