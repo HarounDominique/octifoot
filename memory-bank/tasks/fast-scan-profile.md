@@ -10,7 +10,7 @@ Routing: designed-lite (module selection derived from metadata; design fixed in 
 
 - [x] Phase 1 — Profiles: metadata snapshot, pure `derive_lean`, generated list, passive-only tests (satisfies: SPEC-fast-scan-profile.md#objective, SPEC-fast-scan-profile.md#boundaries)
 - [x] Phase 2 — Plumbing: `SPIDERFOOT_PROFILE` config, client `modulelist`, connector wiring, compose/env (satisfies: SPEC-fast-scan-profile.md#objective, SPEC-fast-scan-profile.md#commands)
-- [ ] Phase 3 — A/B harness: pure compare + CLI (satisfies: SPEC-fast-scan-profile.md#test-strategy)
+- [x] Phase 3 — A/B harness: pure compare + CLI (satisfies: SPEC-fast-scan-profile.md#test-strategy)
 - [ ] Phase 4 — Live A/B + decision: run on two domains, record times/diffs, apply acceptance rule, set default, docs (satisfies: SPEC-fast-scan-profile.md#objective)
 
 ## Execution State
