@@ -9,7 +9,7 @@ import re
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import stix2
@@ -49,6 +49,11 @@ INFRA_EVENTS = {
 }
 MAX_INFRA_VALUES = 5
 
+# TLS certificates (SpiderFoot's text is cut at 1024 characters, so serial/issuer/validity/subject only).
+CERT_EVENT = "SSL_CERTIFICATE_RAW"
+MAX_CERTS = 10
+_CN_RE = re.compile(r"CN\s*=\s*([^,]+)")
+
 # Registration facts and TXT records of the target, as Note lines (no objects).
 WHOIS_EVENT = "DOMAIN_WHOIS"
 TXT_EVENT = "DNS_TEXT"
@@ -84,7 +89,7 @@ IMPORTED_EVENTS = (
     | NETBLOCK_EVENTS
     | {AS_EVENT}
     | set(INFRA_EVENTS)
-    | {WHOIS_EVENT, TXT_EVENT}
+    | {WHOIS_EVENT, TXT_EVENT, CERT_EVENT}
 )
 
 
@@ -104,6 +109,9 @@ class MapResult:
         default_factory=dict
     )  # service -> distinct tokens
     txt_other: set[str] = field(default_factory=set)
+    certs_imported: int = 0
+    certs_over_cap: int = 0
+    certs_foreign: int = 0
     discovered_domains: list[str] = field(default_factory=list)  # INTERNET_NAME, in order
     as_ips: dict[int, set[str]] = field(default_factory=dict)  # ASN -> imported IPs in it
     listed: list[tuple[str, str, str]] = field(default_factory=list)  # (event, feed, value)
@@ -243,6 +251,7 @@ def map_events(
         objects.setdefault(obj.id, obj)
         return objects[obj.id]
 
+    certs: dict[str, tuple[dict[str, Any], str]] = {}  # serial -> (parsed, module), first wins
     pending_ips: list[tuple[str, str, str]] = []
     affiliate_hosts: set[str] = set()  # hostnames of other parties, never imported
     flagged: dict[str, list[tuple[str, str]]] = {}  # ip -> [(feed, module)]
@@ -267,6 +276,16 @@ def map_events(
                     result.invalid += 1
             else:
                 _add_txt(result, data)
+            continue
+        if etype == CERT_EVENT:
+            cert = _parse_cert(data)
+            if cert is None:
+                result.invalid += 1
+            elif not _cert_covers(cert["cn"], target):
+                result.certs_foreign += 1
+                result.unmapped[f"{etype} (not the target's)"] += 1
+            else:
+                certs.setdefault(cert["serial"], (cert, module))
             continue
         if etype in INFRA_EVENTS:
             value = _infra_value(etype, data)
@@ -363,6 +382,29 @@ def map_events(
             relate("belongs-to", ip_obj, autonomous_system(number, as_module), as_module)
             result.as_ips.setdefault(number, set()).add(str(ip))
 
+    newest_first = sorted(
+        certs.values(),
+        key=lambda item: item[0].get("not_before") or datetime.min.replace(tzinfo=UTC),
+        reverse=True,
+    )
+    result.certs_over_cap = max(0, len(newest_first) - MAX_CERTS)
+    for parsed, cert_module in newest_first[:MAX_CERTS]:
+        extra = {k: parsed[k] for k in ("not_before", "not_after") if k in parsed}
+        certificate = stix2.X509Certificate(
+            serial_number=parsed["serial"],
+            issuer=parsed.get("issuer"),
+            subject=parsed["subject"],
+            signature_algorithm=parsed.get("algorithm"),
+            validity_not_before=extra.get("not_before"),
+            validity_not_after=extra.get("not_after"),
+            allow_custom=True,
+            x_opencti_created_by_ref=identity.id,
+            x_opencti_external_references=_ref(scan_id, cert_module),
+        )
+        objects.setdefault(certificate.id, certificate)
+        relate("related-to", certificate, target_obj, cert_module)
+        result.certs_imported += 1
+
     emitted_ips = {o.value for o in objects.values() if o.type in ("ipv4-addr", "ipv6-addr")}
     result.flags_skipped = sum(1 for ip in flagged if ip not in emitted_ips)
     result.name_flags_skipped = sum(
@@ -414,6 +456,51 @@ def _merge_whois(whois: dict[str, Any], text: str) -> bool:
     for name, value in found.items():
         whois.setdefault(name, value)
     return bool(found)
+
+
+def _parse_cert(text: str) -> dict[str, Any] | None:
+    """Serial, issuer, validity, subject and algorithm from ``openssl x509 -text``; None if no serial or subject."""
+    lines = [ln.strip() for ln in text.replace("\r", "").split("\n")]
+    out: dict[str, Any] = {}
+    for i, ln in enumerate(lines):
+        key, _, value = ln.partition(":")
+        key, value = key.strip(), value.strip()  # openssl prints "Not After : ..."
+        if key == "Serial Number":
+            out.setdefault("serial", value or (lines[i + 1] if i + 1 < len(lines) else ""))
+        elif key == "Signature Algorithm" and value:
+            out.setdefault("algorithm", value)
+        elif key == "Issuer" and value:
+            out.setdefault("issuer", value)
+        elif key == "Subject" and value:
+            out.setdefault("subject", value)
+        elif key in ("Not Before", "Not After"):
+            try:
+                when = datetime.strptime(value.replace("GMT", "+0000"), "%b %d %H:%M:%S %Y %z")
+            except ValueError:
+                continue
+            out.setdefault("not_before" if key == "Not Before" else "not_after", when)
+    cn = _CN_RE.search(out.get("subject", ""))
+    if not out.get("serial") or not cn:
+        return None
+    out["cn"] = cn.group(1).strip()
+    return out
+
+
+def _cert_covers(cn: str, target: str) -> bool:
+    """A certificate is the target's when its CN is the target, a wildcard of it, a name under it, or its parent."""
+    name = cn.lower().strip().rstrip(".").removeprefix("*.")
+    return bool(name) and (
+        name == target or name.endswith("." + target) or target.endswith("." + name)
+    )
+
+
+def _tls_line(result: MapResult) -> str:
+    if not (result.certs_imported or result.certs_over_cap or result.certs_foreign):
+        return ""
+    return (
+        f"TLS certificates: {result.certs_imported} imported, {result.certs_over_cap} over the cap of "
+        f"{MAX_CERTS}, {result.certs_foreign} not issued for the target"
+    )
 
 
 def _add_txt(result: MapResult, value: str) -> None:
@@ -528,7 +615,7 @@ def _summary(
     infra = _infra_line(result.infra)
     if infra:
         lines.append(infra)
-    for extra in (_whois_line(result.whois, now), _txt_line(result)):
+    for extra in (_whois_line(result.whois, now), _txt_line(result), _tls_line(result)):
         if extra:
             lines.append(extra)
     if result.unmapped:

@@ -119,9 +119,7 @@ def test_third_party_families_are_declined_by_policy():
 
 
 def test_planned_entries_name_the_slice_that_will_do_them():
-    planned = [e for e in entries().values() if e["status"] == "planned"]
-    assert planned
-    for e in planned:
+    for e in (e for e in entries().values() if e["status"] == "planned"):
         assert e["slice"], e["id"]
 
 

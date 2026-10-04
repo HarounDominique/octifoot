@@ -93,6 +93,15 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### TLS certificates
+
+`SSL_CERTIFICATE_RAW` (certificates found through crt.sh) becomes a STIX `x509-certificate` with serial number, issuer, subject, validity and signature algorithm,
+`related-to` the scanned domain. Only when the subject CN is the target, a wildcard of it, a name under it, or its parent: a certificate can list other customers' names,
+so certificates for anything else are counted under Unmapped as "not the target's" and names inside certificates never become domain objects.
+At most 10 are imported (most recent `Not Before` first) and the Note says how many were left out (`TLS certificates: N imported, M over the cap of 10, K not issued for the target`).
+SpiderFoot truncates the certificate text at 1024 characters, so the SAN list and extensions are not available. The object id comes from the serial number.
+crt.sh is frequently unavailable (HTTP 502), in which case there are simply no certificates; see Source health above.
+
 ### WHOIS and DNS TXT
 
 Two more lines in the scan Note, both text only (no objects), both only from events whose source is the scanned domain or a parent of it

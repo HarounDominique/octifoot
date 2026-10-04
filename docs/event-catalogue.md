@@ -10,8 +10,8 @@ part of what SpiderFoot can find. Most of the rest needs an API key or an active
 
 | Status | Types | Meaning |
 |---|---|---|
-| imported | 17 | the mapper turns it into an object, label or Note line today |
-| planned | 1 | seen in real scans and worth importing; a named slice will do it |
+| imported | 18 | the mapper turns it into an object, label or Note line today |
+| planned | 0 | seen in real scans and worth importing; a named slice will do it |
 | declined | 42 | decided against, with the reason (mostly: it describes a third party or is raw text) |
 | blocked | 34 | not produced by this configuration: needs an API key or an active module |
 | no-data | 78 | producible with the current profile but never seen; decide when real data exists |
@@ -37,12 +37,7 @@ part of what SpiderFoot can find. Most of the rest needs an API key or an active
 | `PROVIDER_DNS` | note: note | 84 events | `Infrastructure` line of the Note. |
 | `PROVIDER_HOSTING` | note: note | 32 events | `Infrastructure` line of the Note. |
 | `PROVIDER_MAIL` | note: note | 28 events | `Infrastructure` line of the Note. |
-
-## Planned
-
-| Event type | Becomes | Slice | Seen | Why |
-|---|---|---|---|---|
-| `SSL_CERTIFICATE_RAW` | object: x509-certificate | x509-certificates | 1 events | Certificates issued for the target's names (from crt.sh) are standard STIX x509-certificate objects with the SANs as context. |
+| `SSL_CERTIFICATE_RAW` | object: x509-certificate | 1 events | Only when the subject CN is the target, a name under it or its parent; `related-to` the domain; capped at 10; SAN names never become objects. |
 
 ## Declined
 

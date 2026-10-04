@@ -2916,11 +2916,11 @@
   ],
   "observed_events": 1,
   "observed_targets": 1,
-  "status": "planned",
+  "status": "imported",
   "action": "object",
   "target": "x509-certificate",
-  "slice": "x509-certificates",
-  "rationale": "Certificates issued for the target's names (from crt.sh) are standard STIX x509-certificate objects with the SANs as context."
+  "slice": "",
+  "rationale": "Only when the subject CN is the target, a name under it or its parent; `related-to` the domain; capped at 10; SAN names never become objects."
  },
  {
   "id": "TARGET_WEB_CONTENT",

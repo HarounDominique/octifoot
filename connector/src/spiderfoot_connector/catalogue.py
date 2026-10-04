@@ -74,6 +74,11 @@ IMPORTED = {
         "note",
         "`DNS TXT` line of the Note: SPF, DMARC policy, verification services; token values never printed.",
     ),
+    "SSL_CERTIFICATE_RAW": (
+        "object",
+        "x509-certificate",
+        "Only when the subject CN is the target, a name under it or its parent; `related-to` the domain; capped at 10; SAN names never become objects.",
+    ),
     "DOMAIN_REGISTRAR": ("note", "note", "`Infrastructure` line of the Note."),
     "PROVIDER_HOSTING": ("note", "note", "`Infrastructure` line of the Note."),
     "PROVIDER_DNS": ("note", "note", "`Infrastructure` line of the Note."),
@@ -87,12 +92,6 @@ DECISIONS = {
         "",
         "",
         "Observed values repeated the domain-verification tokens already in `DNS_TEXT`, but with the TXT string as source: the domain is lost, so it cannot be attributed to the target.",
-    ),
-    "SSL_CERTIFICATE_RAW": (
-        "planned",
-        "x509-certificate",
-        "x509-certificates",
-        "Certificates issued for the target's names (from crt.sh) are standard STIX x509-certificate objects with the SANs as context.",
     ),
     "COMPANY_NAME": (
         "declined",
