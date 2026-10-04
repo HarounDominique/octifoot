@@ -24,6 +24,7 @@ def snap(**kw):
         "mx": [],
         "spf": None,
         "dmarc": None,
+        "source_gaps": False,
     }
     return Snapshot(**{**base, **kw})
 
@@ -160,6 +161,46 @@ def test_not_seen_hostnames_carry_a_caveat_when_subdomain_sources_failed():
         "hostnames not seen this time: old.example.com (subdomain sources reported errors: they may not be gone)"
         in out
     )
+
+
+def test_new_hostnames_after_a_scan_whose_sources_failed_may_only_be_newly_visible():
+    prev = snap(source_gaps=True)
+    cur = snap(scan="S2", hosts=["www.example.com", "api.example.com"])
+    out = text(prev, cur)
+    assert (
+        "hostnames added: api.example.com (the previous scan's subdomain sources reported errors: this may only be newly visible)"
+        in out
+    )
+
+
+def test_new_hostnames_after_a_healthy_scan_carry_no_visibility_caveat():
+    prev = snap(source_gaps=False)
+    cur = snap(scan="S2", hosts=["www.example.com", "api.example.com"])
+    assert "newly visible" not in text(prev, cur)
+
+
+def test_certificates_appearing_where_there_were_none_may_be_crt_sh_answering_this_time():
+    prev = snap(certs=[])
+    cur = snap(scan="S2", certs=["aa:aa"])
+    out = text(prev, cur)
+    assert (
+        "certificates added: 1 (aa:aa) (the previous scan had none: crt.sh may not have answered)"
+        in out
+    )
+
+
+def test_certificates_added_next_to_existing_ones_carry_no_caveat():
+    out = text(snap(certs=["aa:aa"]), snap(scan="S2", certs=["aa:aa", "bb:bb"]))
+    assert "certificates added: 1 (bb:bb)" in out and "crt.sh may not have answered" not in out
+
+
+def test_source_gap_flag_survives_the_round_trip_and_old_snapshots_default_to_false():
+    s = snap(source_gaps=True)
+    assert parse_snapshot(text(None, s)).source_gaps is True
+    line = "Snapshot (machine-readable, used to detect changes at the next scan): " + json.dumps(
+        {"v": 1, "scan": "S0", "at": "2026-10-01T00:00:00Z", "complete": True}
+    )
+    assert parse_snapshot(line).source_gaps is False
 
 
 def test_certificates_report_only_additions():

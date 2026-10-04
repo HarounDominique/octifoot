@@ -101,7 +101,10 @@ SPF and DMARC state changes (only when the direct DNS check ran and both snapsho
 The next enrichment reads the newest snapshot Note of the same target (the abstract must start with `octifoot snapshot for <target>:`) and compares. Deleting those Notes resets the baseline.
 
 Disappearances are reported only when **both** scans were complete (finished, not stopped by the timeout, no failed sub-scan): an incomplete scan or a failing source would make things look gone. When this scan's subdomain sources reported errors,
-the not-seen hostnames carry that caveat; against an incomplete previous scan, additions carry "may not be new". If the previous snapshot cannot be read, the new one is still written and the Note says so.
+the not-seen hostnames carry that caveat; against an incomplete previous scan, additions carry "may not be new". Two more caveats come from a limit that cannot be removed: SpiderFoot's crt.sh module cannot report its own outages, so a scan where crt.sh did not answer looks the same as a domain with no certificates.
+Hostnames added after a scan whose subdomain sources reported errors are marked "may only be newly visible", and certificates appearing where the previous scan had none are marked "crt.sh may not have answered".
+In a real pair of scans of one domain, the second one found a new hostname and 13 certificates that were almost certainly not new, just visible this time.
+If the previous snapshot cannot be read, the new one is still written and the Note says so.
 
 ### What OpenCTI already knows
 

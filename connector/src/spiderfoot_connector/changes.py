@@ -45,6 +45,7 @@ class Snapshot:
     mx: list[str] = field(default_factory=list)
     spf: str | None = None  # "none" | "present" | None when unknown / not checked
     dmarc: str | None = None  # "none" | "p=<policy>" | "present" | None
+    source_gaps: bool = False  # subdomain sources reported errors during this scan
 
 
 def snapshot_from(
@@ -56,6 +57,7 @@ def snapshot_from(
     objects: Iterable[Any],
     infra: dict[str, set[str]],
     dns: DnsFacts | None,
+    source_gaps: bool = False,
 ) -> Snapshot:
     """Snapshot of a merged enrichment result (the target itself is not a host of itself)."""
     objs = list(objects)
@@ -80,6 +82,7 @@ def snapshot_from(
         ns=sorted(infra.get("DNS", ())),
         mx=sorted(infra.get("mail", ())),
         spf=state(dns.spf if dns else None, lambda _: "present"),
+        source_gaps=source_gaps,
         dmarc=state(
             dns.dmarc if dns else None,
             lambda v: f"p={dmarc_policy(v)}" if dmarc_policy(v) else "present",
@@ -136,19 +139,31 @@ def _diff_lines(
 ) -> list[str]:
     lines: list[str] = []
 
-    def added_removed(label: str, key: str, caveat: str = "") -> None:
+    def added_removed(label: str, key: str, caveat: str = "", added_caveat: str = "") -> None:
         old, new = {str(v) for v in getattr(prev, key)}, {str(v) for v in getattr(cur, key)}
         if new - old:
-            lines.append(f"{label} added: {_listed(sorted(new - old))}")
+            lines.append(f"{label} added: {_listed(sorted(new - old))}{added_caveat}")
         if both_complete and old - new:
             lines.append(f"{label} not seen this time: {_listed(sorted(old - new))}{caveat}")
 
     caveat = " (subdomain sources reported errors: they may not be gone)" if failed_sources else ""
+    visibility = (
+        " (the previous scan's subdomain sources reported errors: this may only be newly visible)"
+    )
     for label, key in _SET_CATEGORIES:
-        added_removed(label, key, caveat if key == "hosts" else "")
+        added_removed(
+            label,
+            key,
+            caveat if key == "hosts" else "",
+            visibility if key == "hosts" and prev.source_gaps else "",
+        )
     new_certs = sorted(set(cur.certs) - set(prev.certs))
     if new_certs:
-        lines.append(f"certificates added: {len(new_certs)} ({_listed(new_certs[:3])})")
+        # crt.sh cannot report its own outages, so certificates appearing where there were none may just be it answering
+        crt_caveat = (
+            " (the previous scan had none: crt.sh may not have answered)" if not prev.certs else ""
+        )
+        lines.append(f"certificates added: {len(new_certs)} ({_listed(new_certs[:3])}){crt_caveat}")
     for label, key in _INFRA_CHANGED:
         old, new = getattr(prev, key), getattr(cur, key)
         if old != new and (both_complete or new):
