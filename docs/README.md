@@ -94,6 +94,10 @@ Cloudflare's whole /20 and the "malicious co-hosts" were unrelated sites sharing
 Linking them to the target would present other companies' data as the target's. No STIX
 `Indicator` is created either: a feed flagging a shared CDN IP would yield false positives.
 Treat the label as a lead to verify, not a verdict.
+Labels and references are additive: OpenCTI keeps them across scans, and reputation feeds are
+not deterministic (the same domain was flagged in one scan and not in the next), so a later
+scan without the flag does not remove an earlier one. Each feed reference carries the scan id,
+so you can see which scan reported it.
 
 ### Deliberately not imported
 
