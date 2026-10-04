@@ -58,6 +58,9 @@ _CN_RE = re.compile(r"CN\s*=\s*([^,]+)")
 WHOIS_EVENT = "DOMAIN_WHOIS"
 TXT_EVENT = "DNS_TEXT"
 MAX_SPF_CHARS = 160
+NEW_DOMAIN_DAYS = 30
+REGISTRATION_EXPIRY_DAYS = 30
+CERT_EXPIRY_DAYS = 14
 _DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _WHOIS_DATE_KEYS = {
     "creation date": "created",
@@ -112,6 +115,9 @@ class MapResult:
     certs_imported: int = 0
     certs_over_cap: int = 0
     certs_foreign: int = 0
+    dns_raw_seen: bool = False  # SpiderFoot got DNS answers for the target
+    flagged: list[tuple[str, list[str]]] = field(default_factory=list)  # (host or IP, feeds)
+    cert_info: list[tuple[str, datetime | None]] = field(default_factory=list)  # (CN, not_after)
     discovered_domains: list[str] = field(default_factory=list)  # INTERNET_NAME, in order
     as_ips: dict[int, set[str]] = field(default_factory=dict)  # ASN -> imported IPs in it
     listed: list[tuple[str, str, str]] = field(default_factory=list)  # (event, feed, value)
@@ -178,6 +184,7 @@ def map_events(
     score: int,
     now: datetime,
     source_errors: Sequence[tuple[str, str]] = (),
+    subdomain_sources: frozenset[str] = frozenset(),
 ) -> MapResult:
     """Convert SpiderFoot ``scanexportjsonmulti`` rows into STIX objects."""
     result = MapResult()
@@ -323,6 +330,10 @@ def map_events(
             else:
                 as_of_block[str(ev.get("source_data", "")).strip()] = (number, module)
             continue
+        if etype == "RAW_DNS_RECORDS" and _is_target_or_parent(
+            str(ev.get("source_data", "")), target
+        ):
+            result.dns_raw_seen = True
         if etype not in MAPPED_EVENTS:
             if etype == AFFILIATE_NAME_EVENT:
                 affiliate_hosts.add(_norm_domain(data))
@@ -404,14 +415,23 @@ def map_events(
         objects.setdefault(certificate.id, certificate)
         relate("related-to", certificate, target_obj, cert_module)
         result.certs_imported += 1
+        result.cert_info.append((parsed["cn"], parsed.get("not_after")))
 
     emitted_ips = {o.value for o in objects.values() if o.type in ("ipv4-addr", "ipv6-addr")}
+    result.flagged = sorted(
+        [
+            (n, sorted({f for f, _ in fs}))
+            for n, fs in flagged_names.items()
+            if n == target or n in domains
+        ]
+        + [(ip, sorted({f for f, _ in fs})) for ip, fs in flagged.items() if ip in emitted_ips]
+    )
     result.flags_skipped = sum(1 for ip in flagged if ip not in emitted_ips)
     result.name_flags_skipped = sum(
         1 for name in flagged_names if name != target and name not in domains
     )
 
-    summary = _summary(result, objects, scan_id, target, now, source_errors)
+    summary = _summary(result, objects, scan_id, target, now, source_errors, subdomain_sources)
     note = stix2.Note(
         id=Note.generate_id(now.isoformat(), summary),
         created=now,
@@ -576,6 +596,77 @@ def _infra_line(infra: dict[str, set[str]]) -> str:
     return "Infrastructure (as reported by SpiderFoot): " + "; ".join(parts) if parts else ""
 
 
+def _plural(n: int, one: str, many: str) -> str:
+    return f"{n} {one if n == 1 else many}"
+
+
+def _findings(
+    result: MapResult,
+    now: datetime,
+    source_errors: Sequence[tuple[str, str]],
+    subdomain_sources: frozenset[str],
+) -> list[str]:
+    """What is notable in the data, by fixed rules; every item is tied to observed evidence."""
+    today = now.date()
+    out: list[str] = []
+    if result.flagged:
+        feeds = sorted({f for _, fs in result.flagged for f in fs})
+        values = ", ".join(v for v, _ in result.flagged[:MAX_INFRA_VALUES])
+        extra = len(result.flagged) - MAX_INFRA_VALUES
+        what = _plural(len(result.flagged), "hostname/IP", "hostnames/IPs")
+        out.append(
+            f"{what} flagged malicious ({', '.join(feeds)}): {values}"
+            + (f" and {extra} more" if extra > 0 else "")
+        )
+    mail = sorted(result.infra.get("mail", ()))
+    if mail and result.dns_raw_seen and not result.txt_spf:
+        out.append(
+            f"receives mail (MX: {', '.join(mail[:2])}) but publishes no SPF record "
+            "(DNS answered; DMARC is not checked by SpiderFoot)"
+        )
+    for cn, not_after in sorted(result.cert_info, key=lambda c: c[0]):
+        if not_after is None:
+            continue
+        days = (not_after.date() - today).days
+        if not_after < now:
+            out.append(f"certificate for {cn} expired on {not_after.date()}")
+        elif days <= CERT_EXPIRY_DAYS:
+            out.append(f"certificate for {cn} expires in {days} days ({not_after.date()})")
+    created, expires = result.whois.get("created"), result.whois.get("expires")
+    if created:
+        age = (today - datetime.fromisoformat(created).date()).days
+        if 0 <= age < NEW_DOMAIN_DAYS:
+            out.append(f"registered {age} days ago ({created})")
+    if expires:
+        left = (datetime.fromisoformat(expires).date() - today).days
+        if left < 0:
+            out.append(f"registration expired on {expires}")
+        elif left <= REGISTRATION_EXPIRY_DAYS:
+            out.append(f"registration expires in {left} days ({expires})")
+    if result.listed:
+        listings = _plural(len(result.listed), "reputation listing", "reputation listings")
+        out.append(f"{listings} on shared infrastructure (not the target's own)")
+    failing = sorted({m for m, _ in source_errors} & subdomain_sources)
+    if failing:
+        out.append(
+            f"subdomain discovery may be incomplete: {', '.join(failing)} reported errors "
+            "(sfp_crt does not report outages)"
+        )
+    return out
+
+
+def _findings_block(
+    result: MapResult,
+    now: datetime,
+    source_errors: Sequence[tuple[str, str]],
+    subdomain_sources: frozenset[str],
+) -> list[str]:
+    items = _findings(result, now, source_errors, subdomain_sources)
+    if not items:
+        return ["Key findings: nothing notable in the data the answering sources returned."]
+    return ["Key findings (as of this scan):", *[f"- {item}" for item in items]]
+
+
 def _health_line(errors: Sequence[tuple[str, str]]) -> str:
     by_module: dict[str, list[str]] = {}
     for module, message in errors:
@@ -600,10 +691,12 @@ def _summary(
     target: str,
     now: datetime,
     source_errors: Sequence[tuple[str, str]] = (),
+    subdomain_sources: frozenset[str] = frozenset(),
 ) -> str:
     kinds = Counter(o.type for o in objects.values() if o.type.endswith(("-name", "-addr")))
     lines = [
         f"SpiderFoot scan {scan_id} for {target}.",
+        *_findings_block(result, now, source_errors, subdomain_sources),
         "Mapped: " + (", ".join(f"{k}={v}" for k, v in sorted(kinds.items())) or "nothing"),
     ]
     if result.as_ips:

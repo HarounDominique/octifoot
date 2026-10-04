@@ -13,7 +13,7 @@ from spiderfoot_connector.client import SpiderFootClient, SpiderFootError
 from spiderfoot_connector.config import Settings, load_settings
 from spiderfoot_connector.expansion import plan_next
 from spiderfoot_connector.mapper import map_events
-from spiderfoot_connector.profiles import lean_modules
+from spiderfoot_connector.profiles import SUBDOMAIN_SOURCES, lean_modules
 
 SUPPORTED_ENTITY = "Domain-Name"
 
@@ -97,6 +97,7 @@ class SpiderFootEnrichment:
                 score=cfg.score,
                 now=datetime.now(UTC),
                 source_errors=source_errors,
+                subdomain_sources=SUBDOMAIN_SOURCES,
             )
             unmapped.update(mapped.unmapped)
             for obj in mapped.objects:
