@@ -17,3 +17,8 @@ On macOS use `sed -i ''` (or an edit tool) and never chain a multi-file edit scr
 _derived_from: reflection/scan-changes.md, reflection/spiderfoot-ui-link.md, reflection/api-keys.md · evidence_count: 3 · last_validated: 2026-10-04_
 
 Run the formatter before writing a scripted patch and build its search strings from the file as it is now; a patch whose pattern stopped matching after a reformat leaves the code half-edited, so apply scripted edits one by one and check each reports success.
+
+### read-a-status-flag-after-refreshing-what-it-describes
+_derived_from: reflection/control-panel.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+When an object keeps a status flag set by its last read (such as a `problem` message), refresh the data before reading the flag; reading it first reports the previous read's state.
