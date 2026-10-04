@@ -1,0 +1,166 @@
+# Prototype stack: OpenCTI Community Edition + SpiderFoot + the enrichment connector.
+# Versions are pinned. OpenCTI image tags and connector `pycti` must stay in lockstep
+# (see connector/pyproject.toml). Dependency services mirror OpenCTI's official compose.
+name: opencti-spiderfoot
+
+services:
+  redis:
+    image: redis:8.10.1
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.19.21
+    restart: unless-stopped
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - xpack.ml.enabled=false
+      - xpack.security.enabled=false
+      - thread_pool.search.queue_size=5000
+      - logger.org.elasticsearch.discovery="ERROR"
+      - "ES_JAVA_OPTS=-Xms${ELASTIC_MEMORY_SIZE} -Xmx${ELASTIC_MEMORY_SIZE}"
+    ulimits:
+      memlock: {soft: -1, hard: -1}
+      nofile: {soft: 65536, hard: 65536}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://elasticsearch:9200/_cluster/health?wait_for_status=yellow >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 50
+
+  minio:
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
+    restart: unless-stopped
+    volumes:
+      - s3data:/data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  rabbitmq:
+    image: rabbitmq:4.3-management
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      - RABBITMQ_NODENAME=rabbit01@localhost
+    volumes:
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - amqpdata:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  opencti:
+    image: opencti/platform:7.261002.0
+    restart: unless-stopped
+    environment:
+      - NODE_OPTIONS=--max-old-space-size=8096
+      - APP__PORT=8080
+      - APP__BASE_URL=http://localhost:${OPENCTI_PORT}
+      - APP__ADMIN__EMAIL=${OPENCTI_ADMIN_EMAIL}
+      - APP__ADMIN__PASSWORD=${OPENCTI_ADMIN_PASSWORD}
+      - APP__ADMIN__TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - APP__ENCRYPTION_KEY=${OPENCTI_ENCRYPTION_KEY}
+      - APP__HEALTH_ACCESS_KEY=${OPENCTI_HEALTHCHECK_ACCESS_KEY}
+      - REDIS__HOSTNAME=redis
+      - REDIS__PORT=6379
+      - ELASTICSEARCH__URL=http://elasticsearch:9200
+      - ELASTICSEARCH__NUMBER_OF_REPLICAS=0
+      - MINIO__ENDPOINT=minio
+      - MINIO__PORT=9000
+      - MINIO__USE_SSL=false
+      - MINIO__ACCESS_KEY=${MINIO_ROOT_USER}
+      - MINIO__SECRET_KEY=${MINIO_ROOT_PASSWORD}
+      - RABBITMQ__HOSTNAME=rabbitmq
+      - RABBITMQ__PORT=5672
+      - RABBITMQ__PORT_MANAGEMENT=15672
+      - RABBITMQ__MANAGEMENT_SSL=false
+      - RABBITMQ__USERNAME=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ__PASSWORD=${RABBITMQ_DEFAULT_PASS}
+      - SMTP__HOSTNAME=localhost
+      - SMTP__PORT=25
+      - PROVIDERS__LOCAL__STRATEGY=LocalStrategy
+    ports:
+      - "127.0.0.1:${OPENCTI_PORT}:8080"
+    depends_on:
+      redis: {condition: service_healthy}
+      elasticsearch: {condition: service_healthy}
+      minio: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://opencti:8080/health?health_access_key=${OPENCTI_HEALTHCHECK_ACCESS_KEY}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    image: opencti/worker:7.261002.0
+    restart: unless-stopped
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+    depends_on:
+      opencti: {condition: service_healthy}
+    deploy:
+      mode: replicated
+      replicas: 1
+
+  # No official SpiderFoot image exists on Docker Hub: ./spiderfoot/Dockerfile builds the
+  # MIT-licensed upstream repo at a fixed git tag. The web UI has no authentication, so it
+  # is bound to localhost only and reachable by the connector over the internal network.
+  spiderfoot:
+    build:
+      context: ./spiderfoot
+    restart: unless-stopped
+    volumes:
+      - spiderfootdata:/var/lib/spiderfoot
+    ports:
+      - "127.0.0.1:5001:5001"
+
+  connector-spiderfoot:
+    build:
+      context: ../connector
+    image: spiderfoot-connector:0.1.0
+    restart: unless-stopped
+    environment:
+      - OPENCTI_URL=http://opencti:8080
+      - OPENCTI_TOKEN=${OPENCTI_ADMIN_TOKEN}
+      - CONNECTOR_ID=${CONNECTOR_SPIDERFOOT_ID}
+      - CONNECTOR_TYPE=INTERNAL_ENRICHMENT
+      - CONNECTOR_NAME=SpiderFoot
+      - CONNECTOR_SCOPE=Domain-Name
+      - CONNECTOR_AUTO=false # never scan automatically; analysts trigger it from the UI
+      - CONNECTOR_LOG_LEVEL=info
+      - SPIDERFOOT_URL=http://spiderfoot:5001
+      # Compose refuses to start the connector without an explicit allowlist.
+      - SPIDERFOOT_ALLOWED_DOMAINS=${SPIDERFOOT_ALLOWED_DOMAINS:?set SPIDERFOOT_ALLOWED_DOMAINS to the domains you are authorized to scan}
+      - SPIDERFOOT_USECASE=passive
+      - SPIDERFOOT_TIMEOUT_SECONDS=${SPIDERFOOT_TIMEOUT_SECONDS:-900}
+      - SPIDERFOOT_SCORE=${SPIDERFOOT_SCORE:-30}
+    depends_on:
+      opencti: {condition: service_healthy}
+      spiderfoot: {condition: service_started}
+
+volumes:
+  esdata:
+  s3data:
+  redisdata:
+  amqpdata:
+  spiderfootdata:

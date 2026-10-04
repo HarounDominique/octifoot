@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spiderfoot-connector"
+version = "0.1.0"
+description = "OpenCTI internal-enrichment connector backed by SpiderFoot (passive OSINT)"
+requires-python = ">=3.11"
+dependencies = [
+    "pycti==7.261002.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "responses>=0.25", "ruff>=0.6"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# pycti's connector_logger takes (message, meta_dict), which ruff mistakes for %-formatting.
+"src/spiderfoot_connector/connector.py" = ["PLE1205"]

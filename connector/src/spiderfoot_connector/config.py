@@ -1,0 +1,68 @@
+"""Environment-driven settings. Fails fast so an unsafe config never starts."""
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+
+from spiderfoot_connector.allowlist import parse_allowlist
+
+PASSIVE_USECASE = "passive"
+USECASES = frozenset({"all", "footprint", "investigate", PASSIVE_USECASE})
+_TRUE = frozenset({"1", "true", "yes", "on"})
+
+
+class ConfigError(ValueError):
+    """Raised when the configuration is missing, invalid or unsafe."""
+
+
+@dataclass(frozen=True)
+class Settings:
+    base_url: str
+    allowed_domains: frozenset[str]
+    usecase: str
+    timeout_seconds: int
+    poll_seconds: int
+    score: int
+
+
+def _int(env: Mapping[str, str], key: str, default: int, lo: int, hi: int) -> int:
+    raw = env.get(key)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise ConfigError(f"{key} must be an integer, got {raw!r}") from exc
+    if not lo <= value <= hi:
+        raise ConfigError(f"{key} must be between {lo} and {hi}, got {value}")
+    return value
+
+
+def load_settings(env: Mapping[str, str]) -> Settings:
+    base_url = (env.get("SPIDERFOOT_URL") or "").strip().rstrip("/")
+    if not base_url:
+        raise ConfigError("SPIDERFOOT_URL is required")
+
+    allowed = parse_allowlist(env.get("SPIDERFOOT_ALLOWED_DOMAINS"))
+    if not allowed:
+        raise ConfigError(
+            "SPIDERFOOT_ALLOWED_DOMAINS is required: list the domains you are authorized to scan"
+        )
+
+    usecase = (env.get("SPIDERFOOT_USECASE") or PASSIVE_USECASE).strip().lower()
+    if usecase not in USECASES:
+        raise ConfigError(f"SPIDERFOOT_USECASE must be one of {sorted(USECASES)}, got {usecase!r}")
+    allow_active = (env.get("SPIDERFOOT_ALLOW_ACTIVE") or "").strip().lower() in _TRUE
+    if usecase != PASSIVE_USECASE and not allow_active:
+        raise ConfigError(
+            f"SPIDERFOOT_USECASE={usecase} may run active modules; "
+            "set SPIDERFOOT_ALLOW_ACTIVE=true to opt in explicitly"
+        )
+
+    return Settings(
+        base_url=base_url,
+        allowed_domains=allowed,
+        usecase=usecase,
+        timeout_seconds=_int(env, "SPIDERFOOT_TIMEOUT_SECONDS", 900, 1, 86400),
+        poll_seconds=_int(env, "SPIDERFOOT_POLL_SECONDS", 10, 1, 600),
+        score=_int(env, "SPIDERFOOT_SCORE", 30, 0, 100),
+    )
