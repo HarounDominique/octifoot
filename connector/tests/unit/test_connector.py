@@ -109,3 +109,33 @@ def test_lean_profile_passes_the_derived_module_list(helper):
     modules = client.run_scan.call_args.kwargs["modules"]
     assert modules == lean_modules()
     assert "sfp_crt" in modules and "sfp_robtex" not in modules
+
+
+# --- source health ---
+
+
+def note_texts(helper):
+    return [o["content"] for o in sent_bundle(helper)["objects"] if o["type"] == "note"]
+
+
+def test_scan_errors_reach_the_scan_note(helper):
+    enrichment, client = make(helper)
+    client.fetch_errors.return_value = [("sfp_crobat_api", "Failed to retrieve content")]
+    enrichment.process_message(message())
+    client.fetch_errors.assert_called_once_with("ABC123")
+    assert any("sfp_crobat_api: Failed to retrieve content (1)" in t for t in note_texts(helper))
+
+
+def test_failing_log_read_does_not_fail_the_enrichment(helper):
+    enrichment, client = make(helper)
+    client.fetch_errors.side_effect = SpiderFootError("scanlog unavailable")
+    enrichment.process_message(message())
+    helper.send_stix2_bundle.assert_called_once()
+    assert not any("Sources that reported errors" in t for t in note_texts(helper))
+
+
+def test_no_scan_errors_means_no_health_line(helper):
+    enrichment, client = make(helper)
+    client.fetch_errors.return_value = []
+    enrichment.process_message(message())
+    assert not any("Sources that reported errors" in t for t in note_texts(helper))

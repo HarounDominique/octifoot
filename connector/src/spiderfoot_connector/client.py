@@ -4,6 +4,7 @@ Endpoints used (verified against SpiderFoot's ``sfwebui.py``): ``startscan``,
 ``scanstatus``, ``stopscan`` and ``scanexportjsonmulti``.
 """
 
+import html
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -24,6 +25,9 @@ HTTP_TIMEOUT = 30
 
 class SpiderFootError(RuntimeError):
     """Raised for transport errors and error responses from SpiderFoot."""
+
+
+LOG_LIMIT = 100000
 
 
 @dataclass
@@ -100,6 +104,15 @@ class SpiderFootClient:
         if not isinstance(data, list):
             raise SpiderFootError(f"unexpected export response: {type(data).__name__}")
         return data
+
+    def fetch_errors(self, scan_id: str) -> list[tuple[str, str]]:
+        """(module, message) of the scan log's ERROR rows, oldest first, HTML entities decoded."""
+        data = self._request("GET", "scanlog", params={"id": scan_id, "limit": LOG_LIMIT})
+        if not isinstance(data, list):
+            raise SpiderFootError(f"unexpected scanlog response: {type(data).__name__}")
+        # rows are [time, component, type, message, rowid], newest first
+        rows = [r for r in data if len(r) >= 4 and r[2] == "ERROR"]
+        return [(str(r[1]), html.unescape(str(r[3]))) for r in reversed(rows)]
 
     def run_scan(
         self,

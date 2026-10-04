@@ -92,6 +92,19 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### Source health
+
+After each scan the connector reads SpiderFoot's scan log and adds one line to the scan Note naming the modules
+that logged errors, most errors first, with a count and the first message (eight modules, then "and N more"), for example
+`Sources that reported errors (13 modules; ...): sflib: Failed to connect to https://api.bgpview.io/... (47); sfp_sublist3r: Bad response code "None" from Sublist3r API (2); ...`.
+Read it before concluding that a target has no subdomains or no reputation hits: those findings depend on third-party sources that fail often
+(HTTP 401/403/404, API changes, unreachable hosts). The line is a diagnostic only; it never changes which objects are imported,
+and a failure to read the log never fails the enrichment.
+
+**Limit:** it only sees what SpiderFoot logs as an error. A module that reports an outage as "no information" is invisible here;
+the clearest case is `sfp_crt` (crt.sh), which logs HTTP 502 and "no certificates" identically. Some errors are also constant
+configuration noise (`sfp_customfeed` without a URL, `sfp_flickr` without a key). Absence of the line does not prove every source answered.
+
 ### Infrastructure providers
 
 `DOMAIN_REGISTRAR`, `PROVIDER_HOSTING`, `PROVIDER_DNS` and `PROVIDER_MAIL` appear as one line in the scan
