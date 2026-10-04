@@ -14,7 +14,7 @@ _derived_from: reflection/spiderfoot-connector.md, reflection/x509-certificates.
 Build mapper test fixtures from the field names the upstream code actually emits, and count and report unmapped input types instead of dropping them silently.
 
 ### inspect-real-output-before-specifying-a-mapping
-_derived_from: reflection/risk-signal-mapping.md, reflection/asn-enrichment.md, reflection/reputation-and-infra-notes.md, reflection/source-health-note.md, reflection/event-catalogue.md · evidence_count: 5 · last_validated: 2026-10-04_
+_derived_from: reflection/risk-signal-mapping.md, reflection/asn-enrichment.md, reflection/reputation-and-infra-notes.md, reflection/source-health-note.md, reflection/event-catalogue.md, reflection/opencti-knowledge.md · evidence_count: 6 · last_validated: 2026-10-04_
 
 Before writing a spec that maps third-party data, read real output from a real run; the requested field list can look right and still describe the wrong entities.
 

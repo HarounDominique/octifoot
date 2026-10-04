@@ -197,3 +197,70 @@ def test_a_finished_scan_has_no_incomplete_line(helper):
     enrichment, _ = make(helper)
     enrichment.process_message(message())
     assert not any("scan incomplete" in t or "not FINISHED" in t for t in note_texts(helper))
+
+
+# --- what OpenCTI already knows ---
+
+
+def make_with_knowledge(helper, lookup):
+    client = MagicMock()
+    client.run_scan.return_value = ScanOutcome("ABC123", "FINISHED", EVENTS)
+    client.fetch_errors.return_value = []
+    return SpiderFootEnrichment(helper, SETTINGS, client, knowledge_lookup=lookup), client
+
+
+def knowledge_notes(helper):
+    return [
+        o
+        for o in sent_bundle(helper)["objects"]
+        if o["type"] == "note" and o.get("abstract", "").startswith("OpenCTI knowledge")
+    ]
+
+
+def test_known_observables_are_reported_in_their_own_note(helper):
+    from spiderfoot_connector.knowledge import Known
+
+    asked = []
+
+    def lookup(values):
+        asked.append(sorted(values))
+        return [Known("198.51.100.7", "IPv4-Addr", indicators=[("C2 server", 80)])]
+
+    enrichment, _ = make_with_knowledge(helper, lookup)
+    enrichment.process_message(message("example.com"))
+    assert len(asked) == 1 and "example.com" in asked[0] and "198.51.100.7" in asked[0]
+    (note,) = knowledge_notes(helper)
+    assert note["abstract"].startswith("OpenCTI knowledge before this import: 1 of ")
+    assert "198.51.100.7 (IPv4-Addr): 1 indicator (highest score 80)" in note["content"]
+
+
+def test_nothing_known_is_still_stated(helper):
+    enrichment, _ = make_with_knowledge(helper, lambda values: [])
+    enrichment.process_message(message("example.com"))
+    (note,) = knowledge_notes(helper)
+    assert "none of the" in note["content"] and "other sources" in note["content"]
+
+
+def test_a_failing_lookup_never_fails_the_enrichment(helper):
+    def lookup(values):
+        raise RuntimeError("platform unreachable")
+
+    enrichment, _ = make_with_knowledge(helper, lookup)
+    enrichment.process_message(message("example.com"))
+    helper.send_stix2_bundle.assert_called_once()
+    assert knowledge_notes(helper) == []
+
+
+def test_no_lookup_configured_means_no_knowledge_note(helper):
+    enrichment, _ = make(helper)
+    enrichment.process_message(message())
+    assert knowledge_notes(helper) == []
+
+
+def test_knowledge_note_is_attached_to_the_root_target(helper):
+    import stix2
+
+    enrichment, _ = make_with_knowledge(helper, lambda values: [])
+    enrichment.process_message(message("example.com"))
+    (note,) = knowledge_notes(helper)
+    assert note["object_refs"] == [stix2.DomainName(value="example.com").id]
