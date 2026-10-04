@@ -17,3 +17,13 @@ Build mapper test fixtures from the field names the upstream code actually emits
 _derived_from: reflection/risk-signal-mapping.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 Before writing a spec that maps third-party data, read real output from a real run; the requested field list can look right and still describe the wrong entities.
+
+### round-trip-new-fields-through-the-real-target
+_derived_from: reflection/iterative-scan-loop.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+When a change adds fields a downstream system ingests, import them into the real system once and read them back; asserting the generated object does not prove the system kept it (OpenCTI silently drops external references without external_id or url).
+
+### replay-recorded-events-when-upstream-is-nondeterministic
+_derived_from: reflection/iterative-scan-loop.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+If a third-party source gives different results per run, save the real events from a run that exhibits the case and replay them through the code into the real target, instead of waiting for a fresh run to reproduce it.
