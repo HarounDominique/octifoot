@@ -16,12 +16,20 @@ from pycti import Identity, Note, StixCoreRelationship
 
 SOURCE_NAME = "SpiderFoot"
 AFFILIATE_SCORE_DIVISOR = 2
+_FEED_RE = re.compile(r"^(?P<feed>[^\[\n]+?)\s*\[(?P<value>[^\]\n]+)\]")
 _DOMAIN_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z]{2,63}$")
 
 DOMAIN_EVENTS = {"INTERNET_NAME", "AFFILIATE_INTERNET_NAME"}
-IP_EVENTS = {"IP_ADDRESS"}
+IP_EVENTS = {"IP_ADDRESS", "IPV6_ADDRESS"}
 EMAIL_EVENTS = {"EMAILADDR"}
 MAPPED_EVENTS = DOMAIN_EVENTS | IP_EVENTS | EMAIL_EVENTS
+
+# Reputation signals. A flagged IP that is part of the output is labelled; subnet and
+# co-host hits describe shared infrastructure, so they are only listed in the Note.
+FLAG_IP_EVENT = "MALICIOUS_IPADDR"
+LISTED_EVENTS = {"MALICIOUS_SUBNET", "MALICIOUS_COHOST"}
+MALICIOUS_LABEL = "spiderfoot:malicious"
+MAX_NOTE_LINES = 20
 
 
 @dataclass
@@ -30,6 +38,14 @@ class MapResult:
     unmapped: Counter = field(default_factory=Counter)
     false_positives: int = 0
     invalid: int = 0
+    flags_skipped: int = 0
+    listed: list[tuple[str, str, str]] = field(default_factory=list)  # (event, feed, value)
+
+
+def parse_feed_event(data: str) -> tuple[str, str] | None:
+    """'Maltiverse [1.2.3.4]\\n...' -> ('Maltiverse', '1.2.3.4'); None if unparsable."""
+    m = _FEED_RE.match(data.strip())
+    return (m["feed"].strip(), m["value"].strip()) if m else None
 
 
 def _norm_domain(value: str) -> str:
@@ -85,13 +101,27 @@ def map_events(
     domains: dict[str, Any] = {target: target_obj}
     emitted: set[tuple[str, str]] = set()
 
-    def observable(factory, value: str, module: str, obs_score: int):
+    def observable(
+        factory, value: str, module: str, obs_score: int, flags: list[tuple[str, str]] = ()
+    ):
+        refs = _ref(scan_id, module)
+        extra = {}
+        if flags:
+            refs += [
+                {
+                    "source_name": feed,
+                    "description": f"Flagged malicious by {feed} (SpiderFoot module {flag_module})",
+                }
+                for feed, flag_module in flags
+            ]
+            extra["x_opencti_labels"] = [MALICIOUS_LABEL]
         obj = factory(
             value=value,
             allow_custom=True,
             x_opencti_score=obs_score,
             x_opencti_created_by_ref=identity.id,
-            x_opencti_external_references=_ref(scan_id, module),
+            x_opencti_external_references=refs,
+            **extra,
         )
         objects.setdefault(obj.id, obj)
         return objects[obj.id]
@@ -101,18 +131,33 @@ def map_events(
         objects.setdefault(rel.id, rel)
 
     pending_ips: list[tuple[str, str, str]] = []
+    flagged: dict[str, list[tuple[str, str]]] = {}  # ip -> [(feed, module)]
 
     for ev in events:
         etype = ev.get("event_type", "")
         if ev.get("false_positive"):
             result.false_positives += 1
             continue
+        data = str(ev.get("data", "")).strip()
+        module = str(ev.get("module", "unknown"))
+
+        if etype == FLAG_IP_EVENT or etype in LISTED_EVENTS:
+            parsed = parse_feed_event(data)
+            if parsed is None:
+                result.invalid += 1
+            elif etype in LISTED_EVENTS:
+                result.listed.append((etype, *parsed))
+            else:
+                try:
+                    flagged.setdefault(str(ipaddress.ip_address(parsed[1])), []).append(
+                        (parsed[0], module)
+                    )
+                except ValueError:
+                    result.invalid += 1
+            continue
         if etype not in MAPPED_EVENTS:
             result.unmapped[etype] += 1
             continue
-
-        data = str(ev.get("data", "")).strip()
-        module = str(ev.get("module", "unknown"))
 
         if etype in DOMAIN_EVENTS:
             name = _norm_domain(data)
@@ -137,7 +182,7 @@ def map_events(
             email = observable(stix2.EmailAddress, addr, module, score)
             relate("related-to", email, target_obj, module)
 
-        else:  # IP_ADDRESS — resolved after all domains are known
+        else:  # IP_ADDRESS / IPV6_ADDRESS — resolved after all domains are known
             pending_ips.append((data, _norm_domain(str(ev.get("source_data", ""))), module))
 
     for data, source_host, module in pending_ips:
@@ -151,8 +196,11 @@ def map_events(
             continue
         emitted.add(key)
         factory = stix2.IPv4Address if ip.version == 4 else stix2.IPv6Address
-        ip_obj = observable(factory, str(ip), module, score)
+        ip_obj = observable(factory, str(ip), module, score, flagged.get(str(ip), []))
         relate("resolves-to", domains.get(source_host, target_obj), ip_obj, module)
+
+    emitted_ips = {o.value for o in objects.values() if o.type in ("ipv4-addr", "ipv6-addr")}
+    result.flags_skipped = sum(1 for ip in flagged if ip not in emitted_ips)
 
     summary = _summary(result, objects, scan_id, target)
     note = stix2.Note(
@@ -181,6 +229,14 @@ def _summary(result: MapResult, objects: dict[str, Any], scan_id: str, target: s
             "Unmapped event types (not imported): "
             + ", ".join(f"{k}={v}" for k, v in sorted(result.unmapped.items()))
         )
+    if result.listed:
+        lines.append("Reputation hits on shared infrastructure (not imported as objects):")
+        hits = sorted(f"{feed}: {value} ({etype})" for etype, feed, value in result.listed)
+        lines += [f"- {h}" for h in hits[:MAX_NOTE_LINES]]
+        if len(hits) > MAX_NOTE_LINES:
+            lines.append(f"- and {len(hits) - MAX_NOTE_LINES} more")
+    if result.flags_skipped:
+        lines.append(f"Malicious flags on IPs not in this import: {result.flags_skipped}")
     lines.append(
         f"False positives skipped: {result.false_positives}; invalid values: {result.invalid}"
     )

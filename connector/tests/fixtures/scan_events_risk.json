@@ -1,0 +1,162 @@
+[
+ {
+  "event_type": "IP_ADDRESS",
+  "data": "203.0.113.10",
+  "source_data": "example.com",
+  "module": "sfp_dnsresolve",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "IP_ADDRESS",
+  "data": "203.0.113.11",
+  "source_data": "example.com",
+  "module": "sfp_dnsresolve",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "IPV6_ADDRESS",
+  "data": "2001:db8::10",
+  "source_data": "example.com",
+  "module": "sfp_dnsresolve",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "MALICIOUS_IPADDR",
+  "data": "Maltiverse [203.0.113.10]\n",
+  "source_data": "203.0.113.10",
+  "module": "sfp_maltiverse",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "MALICIOUS_IPADDR",
+  "data": "Maltiverse [203.0.113.11]\n",
+  "source_data": "203.0.113.11",
+  "module": "sfp_maltiverse",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "MALICIOUS_SUBNET",
+  "data": "VoIP Blacklist (VoIPBL) [203.0.113.0/24]\nhttps://voipbl.org/check/?ip=203.0.113.0/24",
+  "source_data": "203.0.113.0/24",
+  "module": "sfp_voipbl",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "BLACKLISTED_SUBNET",
+  "data": "VoIP Blacklist (VoIPBL) [203.0.113.0/24]\nhttps://voipbl.org/check/?ip=203.0.113.0/24",
+  "source_data": "203.0.113.0/24",
+  "module": "sfp_voipbl",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "MALICIOUS_COHOST",
+  "data": "Comodo Secure DNS [cohost-1.example.net]",
+  "source_data": "cohost-1.example.net",
+  "module": "sfp_comodo",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "MALICIOUS_COHOST",
+  "data": "Comodo Secure DNS [cohost-2.example.net]",
+  "source_data": "cohost-2.example.net",
+  "module": "sfp_comodo",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "MALICIOUS_COHOST",
+  "data": "Comodo Secure DNS [cohost-3.example.net]",
+  "source_data": "cohost-3.example.net",
+  "module": "sfp_comodo",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "MALICIOUS_COHOST",
+  "data": "Comodo Secure DNS [cohost-4.example.net]",
+  "source_data": "cohost-4.example.net",
+  "module": "sfp_comodo",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "BLACKLISTED_COHOST",
+  "data": "Comodo Secure DNS [cohost-1.example.net]",
+  "source_data": "cohost-1.example.net",
+  "module": "sfp_comodo",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "AFFILIATE_EMAILADDR",
+  "data": "owner@cohost-1.example.net",
+  "source_data": "   Domain Name: COHOST-1.EXAMPLE.NET\r\n",
+  "module": "sfp_email",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "AFFILIATE_EMAILADDR",
+  "data": "admin@cohost-2.example.net",
+  "source_data": "   Domain Name: COHOST-2.EXAMPLE.NET\r\n",
+  "module": "sfp_email",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "AFFILIATE_IPADDR",
+  "data": "198.51.100.5",
+  "source_data": "ns1.example.net",
+  "module": "sfp_dnsresolve",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "AFFILIATE_IPV6_ADDRESS",
+  "data": "2001:db8:ffff::5",
+  "source_data": "ns1.example.net",
+  "module": "sfp_dnsresolve",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ }
+]

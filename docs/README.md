@@ -52,15 +52,32 @@ In OpenCTI open a `Domain-Name` observable, then enrichment → **SpiderFoot**.
 |---|---|---|
 | `INTERNET_NAME` | `domain-name` | `related-to` → scanned domain |
 | `AFFILIATE_INTERNET_NAME` | `domain-name` (score halved) | `related-to` → scanned domain |
-| `IP_ADDRESS` | `ipv4-addr` / `ipv6-addr` | `resolves-to` from the host that produced it, else the scanned domain |
+| `IP_ADDRESS`, `IPV6_ADDRESS` | `ipv4-addr` / `ipv6-addr` | `resolves-to` from the host that produced it, else the scanned domain |
 | `EMAILADDR` | `email-addr` | `related-to` → scanned domain |
 
 Every imported object carries `created_by` = Identity "SpiderFoot", a low score, and an
 external reference naming the scan id and SpiderFoot module. One Note per scan summarizes
 what was mapped, what was skipped and how many events were false positives.
 
-Not imported in v1: all other event types (open ports, banners, technologies, …), IPv6
-events (`IPV6_ADDRESS`), false positives. Skipped types are counted in the Note and logs.
+### Reputation signals
+
+| SpiderFoot event | Handling |
+|---|---|
+| `MALICIOUS_IPADDR` | No new object. An imported IP flagged by a feed gets label `spiderfoot:malicious` and one external reference per feed (e.g. "Maltiverse"). Flags on IPs not in the import are only counted. |
+| `MALICIOUS_SUBNET`, `MALICIOUS_COHOST` | Listed in the scan Note (feed, value; max 20 lines, then "and N more"). Never objects. |
+
+Why not objects: in a real scan of a domain behind Cloudflare, the "malicious subnet" was
+Cloudflare's whole /20 and the "malicious co-hosts" were unrelated sites sharing the CDN IP.
+Linking them to the target would present other companies' data as the target's. No STIX
+`Indicator` is created either: a feed flagging a shared CDN IP would yield false positives.
+Treat the label as a lead to verify, not a verdict.
+
+### Deliberately not imported
+
+`AFFILIATE_EMAILADDR` is unreliable: the emails come from the WHOIS of co-hosted sites, not
+of the target. `AFFILIATE_IPADDR` / `AFFILIATE_IPV6_ADDRESS` are nameserver IPs. Open ports,
+banners, technologies and every other event type are also skipped. Skipped types are counted
+in the Note and logs. False positives are dropped.
 Re-running a scan does not duplicate observables (deterministic STIX ids).
 
 ## Development
@@ -96,6 +113,6 @@ events), imported 2 IPs, 2 related domains and 1 Note; a second run created no d
   *Future* in the spec. It needs allowlist propagation, depth limits and scan dedupe.
 - SpiderFoot upstream's last commit is from 2023; its HTTP API is not a stable contract.
   Versions are pinned (`v4.0`) for that reason.
-- Next iteration: map `MALICIOUS_IPADDR`, `MALICIOUS_COHOST`, `MALICIOUS_SUBNET` (real CTI
-  signals seen in the E2E scan), then `AFFILIATE_EMAILADDR` and `IPV6_ADDRESS`.
+- Possible next steps: ports/banners and technologies, `Indicator` objects with CDN-aware
+  filtering, and the iterative investigation loop (see the spec's *Future* section).
 - Only OpenCTI Community Edition features are used.
