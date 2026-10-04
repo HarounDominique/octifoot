@@ -93,6 +93,18 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### DNS checks
+
+For the root target of an enrichment (not for expansion sub-scans) the connector itself asks the resolver for MX, SPF (TXT), `_dmarc` TXT, CAA, DS and `_mta-sts` TXT of the scanned name and adds
+`DNS checks (queried by octifoot, not by SpiderFoot): MX: ...; SPF: ...; DMARC: p=reject; CAA: none; DNSSEC: no DS record; MTA-STS: none` to the Note. These are ordinary recursive lookups for a name you
+authorised, the same kind SpiderFoot's DNS module issues. SpiderFoot never asks for `_dmarc`, CAA, DS or `_mta-sts`, so this is data neither SpiderFoot nor OpenCTI would give you.
+
+Each answer is *found*, *none* (NXDOMAIN or an empty answer) or *unknown* (timeout, SERVFAIL): unknown is never reported as none. A null MX (`0 .`, RFC 7505) means the name accepts no mail. Only the scanned name is checked,
+so DMARC inherited from an organisational domain is not modelled. A failing check never fails the enrichment.
+
+With these facts the mail findings rest on the target's own MX: `receives mail but publishes no SPF record`, `no DMARC record at _dmarc.<name>`, `DMARC policy is p=none`, `SPF ends in +all/?all`; a name with no MX gets none of them.
+If the MX lookup itself fails, the earlier inference from scan events applies, with its disclaimer.
+
 ### Key findings
 
 The scan Note opens with a `Key findings (as of this scan)` block: what is notable in the data, by fixed rules, each tied to evidence in the same Note.

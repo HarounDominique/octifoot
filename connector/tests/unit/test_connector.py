@@ -139,3 +139,44 @@ def test_no_scan_errors_means_no_health_line(helper):
     client.fetch_errors.return_value = []
     enrichment.process_message(message())
     assert not any("Sources that reported errors" in t for t in note_texts(helper))
+
+
+# --- own DNS checks ---
+
+
+def make_with_dns(helper, dns_check, settings=SETTINGS):
+    client = MagicMock()
+    client.run_scan.return_value = ScanOutcome("ABC123", "FINISHED", EVENTS)
+    client.fetch_errors.return_value = []
+    return SpiderFootEnrichment(helper, settings, client, dns_check=dns_check), client
+
+
+def test_dns_checks_run_for_the_root_target_and_reach_the_note(helper):
+    from spiderfoot_connector.dnschecks import DnsFacts
+
+    asked = []
+
+    def dns_check(name):
+        asked.append(name)
+        return DnsFacts(mx=[], spf="", dmarc="", caa=[], ds=[], mta_sts="")
+
+    enrichment, _ = make_with_dns(helper, dns_check)
+    enrichment.process_message(message("example.com"))
+    assert asked == ["example.com"]
+    assert any("DNS checks (queried by octifoot" in t for t in note_texts(helper))
+
+
+def test_a_failing_dns_check_never_fails_the_enrichment(helper):
+    def dns_check(name):
+        raise RuntimeError("resolver exploded")
+
+    enrichment, _ = make_with_dns(helper, dns_check)
+    enrichment.process_message(message("example.com"))
+    helper.send_stix2_bundle.assert_called_once()
+    assert not any("DNS checks (queried" in t for t in note_texts(helper))
+
+
+def test_no_dns_check_configured_means_no_dns_line(helper):
+    enrichment, _ = make(helper)
+    enrichment.process_message(message())
+    assert not any("DNS checks (queried" in t for t in note_texts(helper))

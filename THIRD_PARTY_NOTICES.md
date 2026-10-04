@@ -68,6 +68,7 @@ Resolved in the development environment on 2026-10-04. All are permissive except
 | BSD | antlr4-python3-runtime, click (BSD-3-Clause), idna (BSD-3-Clause), pika (BSD-3-Clause), python-json-logger (BSD-2-Clause), starlette (BSD-3-Clause), stix2, stix2-patterns, uvicorn (BSD-3-Clause) |
 | MPL-2.0 | certifi |
 | PSF-2.0 | typing-extensions |
+| ISC | dnspython (added for the connector's own DNS checks) |
 
 Development only (not shipped): pytest (MIT), responses (Apache-2.0), ruff (MIT).
 

@@ -13,6 +13,7 @@ classifiers = ["License :: OSI Approved :: Apache Software License"]
 dependencies = [
     "pycti==7.261002.0",
     "requests>=2.31",
+    "dnspython>=2.6",
 ]
 
 [project.urls]
