@@ -152,6 +152,8 @@ services:
       # Compose refuses to start the connector without an explicit allowlist.
       - SPIDERFOOT_ALLOWED_DOMAINS=${SPIDERFOOT_ALLOWED_DOMAINS:?set SPIDERFOOT_ALLOWED_DOMAINS to the domains you are authorized to scan}
       - SPIDERFOOT_USECASE=passive
+      # full = SpiderFoot's whole Passive group; lean = explicit, faster module list (see docs).
+      - SPIDERFOOT_PROFILE=${SPIDERFOOT_PROFILE:-full}
       - SPIDERFOOT_TIMEOUT_SECONDS=${SPIDERFOOT_TIMEOUT_SECONDS:-900}
       - SPIDERFOOT_SCORE=${SPIDERFOOT_SCORE:-30}
       # Iterative expansion is opt-in (0 = single scan). Only allowlisted subdomains are ever expanded.

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from urllib.parse import parse_qs
 
 import pytest
 import responses
@@ -123,3 +124,32 @@ def test_status_empty_list_means_unknown_scan(client):
     responses.add(responses.GET, f"{BASE}/scanstatus", json=[])
     with pytest.raises(SpiderFootError, match="unknown scan"):
         client.status("nope")
+
+
+@responses.activate
+def test_start_scan_with_modules_sends_modulelist_and_no_usecase(client):
+    responses.add(responses.POST, f"{BASE}/startscan", json=["SUCCESS", "M1"])
+    assert client.start_scan("example.com", "passive", modules=["sfp_crt", "sfp_ripe"]) == "M1"
+    body = parse_qs(responses.calls[0].request.body)
+    assert body["modulelist"] == ["sfp_crt,sfp_ripe"]
+    assert body.get("usecase", [""]) == [""]
+
+
+@responses.activate
+def test_run_scan_passes_modules_through(client):
+    responses.add(responses.POST, f"{BASE}/startscan", json=["SUCCESS", "M1"])
+    responses.add(responses.GET, f"{BASE}/scanstatus", json=status_body("FINISHED"))
+    responses.add(responses.GET, f"{BASE}/scanexportjsonmulti", json=[])
+    client.run_scan(
+        "example.com", "passive", timeout_seconds=10, poll_seconds=1, modules=["sfp_crt"]
+    )
+    assert parse_qs(responses.calls[0].request.body)["modulelist"] == ["sfp_crt"]
+
+
+@responses.activate
+def test_full_profile_still_sends_usecase_and_empty_modulelist(client):
+    responses.add(responses.POST, f"{BASE}/startscan", json=["SUCCESS", "F1"])
+    client.start_scan("example.com", "passive")
+    body = parse_qs(responses.calls[0].request.body, keep_blank_values=True)
+    assert body["usecase"] == ["Passive"]
+    assert body["modulelist"] == [""]

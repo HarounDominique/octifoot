@@ -62,19 +62,21 @@ class SpiderFootClient:
         except (requests.RequestException, ValueError) as exc:
             raise SpiderFootError(f"SpiderFoot request to /{path} failed: {exc}") from exc
 
-    def start_scan(self, target: str, usecase: str) -> str:
+    def start_scan(self, target: str, usecase: str, modules: list[str] | None = None) -> str:
         sf_usecase = _USECASE_NAMES.get(usecase.lower())
         if sf_usecase is None:
             raise SpiderFootError(f"unsupported usecase {usecase!r}")
+        # An explicit module list wins over the use case group inside SpiderFoot.
+        modulelist = ",".join(modules) if modules else ""
         data = self._request(
             "POST",
             "startscan",
             data={
                 "scanname": f"opencti-enrich {target}",
                 "scantarget": target,
-                "modulelist": "",
+                "modulelist": modulelist,
                 "typelist": "",
-                "usecase": sf_usecase,
+                "usecase": "" if modules else sf_usecase,
             },
         )
         if not (isinstance(data, list) and len(data) == 2):
@@ -100,10 +102,16 @@ class SpiderFootClient:
         return data
 
     def run_scan(
-        self, target: str, usecase: str, *, timeout_seconds: int, poll_seconds: int
+        self,
+        target: str,
+        usecase: str,
+        *,
+        timeout_seconds: int,
+        poll_seconds: int,
+        modules: list[str] | None = None,
     ) -> ScanOutcome:
         """Start a scan, wait for it, and return its events (partial on timeout)."""
-        scan_id = self.start_scan(target, usecase)
+        scan_id = self.start_scan(target, usecase, modules)
         deadline = self._monotonic() + timeout_seconds
         status = self.status(scan_id)
         while status not in TERMINAL_STATES:

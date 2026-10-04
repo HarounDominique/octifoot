@@ -81,3 +81,27 @@ def test_client_error_propagates(helper):
     enrichment, _ = make(helper, error=SpiderFootError("boom"))
     with pytest.raises(SpiderFootError):
         enrichment.process_message(message())
+
+
+def test_full_profile_does_not_pass_modules(helper):
+    enrichment, client = make(helper)
+    enrichment.process_message(message())
+    assert "modules" not in client.run_scan.call_args.kwargs
+
+
+def test_lean_profile_passes_the_derived_module_list(helper):
+    from spiderfoot_connector.profiles import lean_modules
+
+    lean = load_settings(
+        {
+            "SPIDERFOOT_URL": "http://sf:5001",
+            "SPIDERFOOT_ALLOWED_DOMAINS": "example.com",
+            "SPIDERFOOT_PROFILE": "lean",
+        }
+    )
+    client = MagicMock()
+    client.run_scan.return_value = ScanOutcome("ABC123", "FINISHED", EVENTS)
+    SpiderFootEnrichment(helper, lean, client).process_message(message())
+    modules = client.run_scan.call_args.kwargs["modules"]
+    assert modules == lean_modules()
+    assert "sfp_crt" in modules and "sfp_robtex" not in modules

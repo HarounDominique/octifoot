@@ -13,6 +13,7 @@ from spiderfoot_connector.client import SpiderFootClient, SpiderFootError
 from spiderfoot_connector.config import Settings, load_settings
 from spiderfoot_connector.expansion import plan_next
 from spiderfoot_connector.mapper import map_events
+from spiderfoot_connector.profiles import lean_modules
 
 SUPPORTED_ENTITY = "Domain-Name"
 
@@ -40,6 +41,8 @@ class SpiderFootEnrichment:
             raise TargetNotAllowed(f"{root} is not in SPIDERFOOT_ALLOWED_DOMAINS")
 
         cfg = self._settings
+        # `full` keeps SpiderFoot's whole Passive group; `lean` sends an explicit module list.
+        scan_options = {"modules": lean_modules()} if cfg.profile == "lean" else {}
         objects: dict[str, Any] = {}
         queue: list[tuple[str, int]] = [(root, 0)]
         known = {_norm(root)}  # scanned or queued: never scan twice
@@ -67,6 +70,7 @@ class SpiderFootEnrichment:
                     cfg.usecase,
                     timeout_seconds=cfg.timeout_seconds,
                     poll_seconds=cfg.poll_seconds,
+                    **scan_options,
                 )
                 if outcome.status == "ERROR-FAILED":
                     raise SpiderFootError(f"scan {outcome.scan_id} ended with ERROR-FAILED")
