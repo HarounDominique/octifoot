@@ -164,3 +164,10 @@ def test_discovered_domains_only_internet_names_excluding_target_and_noise():
 
 def test_no_discoveries_yields_empty_list():
     assert run([]).discovered_domains == []
+
+
+def test_feed_references_carry_external_id_so_opencti_keeps_them(risk):
+    # OpenCTI silently drops external references that have neither url nor external_id.
+    for ip in ips(risk).values():
+        for ref in getattr(ip, "x_opencti_external_references", []):
+            assert ref.get("external_id") or ref.get("url"), ref

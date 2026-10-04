@@ -111,6 +111,7 @@ def map_events(
             refs += [
                 {
                     "source_name": feed,
+                    "external_id": scan_id,
                     "description": f"Flagged malicious by {feed} (SpiderFoot module {flag_module})",
                 }
                 for feed, flag_module in flags

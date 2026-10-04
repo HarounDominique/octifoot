@@ -25,3 +25,5 @@ Routing: standard (4 source files, design fixed in spec).
 
 [Anything a build phase did differently from what the spec/plan predicted, and whether
 it was accepted, and by whom.]
+- Live check (2026-10-04) of this and the previous iteration found a bug in `risk-signal-mapping`, already merged: per-feed external references (`source_name` = feed, `description` only) were silently dropped by OpenCTI, which requires `external_id` or `url`. The label `spiderfoot:malicious` did arrive. Fixed on this branch by adding `external_id=scan_id` to feed references, with a regression test (`test_feed_references_carry_external_id_so_opencti_keeps_them`). Unit tests could not catch it because they assert the generated object, not what OpenCTI accepts.
+- Live run with `SPIDERFOOT_MAX_DEPTH=1` on `registrolineas.com`: one scan, no subdomains discovered (domain is behind Cloudflare), expansion Note present with "scans run: 1". The multi-scan expansion path is covered by unit tests with a fake client only; no live domain with allowlisted subdomains was available.
