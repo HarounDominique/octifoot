@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from spiderfoot_connector.mapper import IMPORTED_EVENTS
 from spiderfoot_connector.profiles import DENY, derive_lean, lean_modules, load_snapshot
 
 REQUIRED = {
@@ -91,5 +92,29 @@ def test_committed_list_matches_derivation():
     assert committed == derive_lean(load_snapshot(), DENY)
 
 
-def test_deny_list_is_the_evidence_based_pair():
-    assert DENY == frozenset({"sfp_robtex", "sfp_countryname"})
+CLOUD_BUCKET_MODULES = frozenset(
+    {"sfp_s3bucket", "sfp_azureblobstorage", "sfp_digitaloceanspace", "sfp_googleobjectstorage"}
+)
+
+
+def test_deny_list_is_the_evidence_based_set():
+    # robtex/countryname: co-host chain (fast-scan-profile). Cloud buckets: they guess thousands of
+    # bucket names against third-party storage hosts (s3bucket alone kept a scan running 164 s
+    # after every other module had finished) and their events are not imported.
+    assert DENY == frozenset({"sfp_robtex", "sfp_countryname"}) | CLOUD_BUCKET_MODULES
+
+
+def test_lean_loses_no_event_type_the_connector_imports():
+    snapshot = load_snapshot()
+    passive = {n for n, m in snapshot.items() if "Passive" in m["useCases"]}
+
+    def importable(modules):
+        return {e for n in modules for e in snapshot[n]["produced"]} & IMPORTED_EVENTS
+
+    assert importable(passive) <= importable(set(lean_modules()))
+
+
+def test_denied_modules_produce_nothing_the_connector_imports():
+    snapshot = load_snapshot()
+    for name in CLOUD_BUCKET_MODULES:
+        assert not set(snapshot[name]["produced"]) & IMPORTED_EVENTS, name
