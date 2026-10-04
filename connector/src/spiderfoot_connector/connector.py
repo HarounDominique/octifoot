@@ -11,6 +11,7 @@ import stix2
 from pycti import Note, OpenCTIConnectorHelper
 
 from spiderfoot_connector.allowlist import is_allowed
+from spiderfoot_connector.apikeys import KeyRing, apply_keys, load_keyring
 from spiderfoot_connector.changes import (
     Snapshot,
     latest_snapshot,
@@ -24,7 +25,7 @@ from spiderfoot_connector.dnschecks import DnsFacts, check_domain
 from spiderfoot_connector.expansion import plan_next
 from spiderfoot_connector.knowledge import Known, query_known, render_knowledge
 from spiderfoot_connector.mapper import map_events
-from spiderfoot_connector.profiles import SUBDOMAIN_SOURCES, lean_modules
+from spiderfoot_connector.profiles import SUBDOMAIN_SOURCES, lean_modules_with, load_snapshot
 from spiderfoot_connector.watch import Watcher, ask_enrichment, query_watched, snapshot_time
 
 SUPPORTED_ENTITY = "Domain-Name"
@@ -43,6 +44,7 @@ class SpiderFootEnrichment:
         dns_check: Callable[[str], DnsFacts] | None = None,
         knowledge_lookup: Callable[[list[str]], list[Known]] | None = None,
         snapshot_lookup: Callable[[str], Snapshot | None] | None = None,
+        key_ring: KeyRing | None = None,
     ) -> None:
         self._helper = helper
         self._settings = settings
@@ -50,6 +52,7 @@ class SpiderFootEnrichment:
         self._dns_check = dns_check
         self._knowledge_lookup = knowledge_lookup
         self._snapshot_lookup = snapshot_lookup
+        self._key_ring = key_ring
 
     def process_message(self, data: dict) -> str:
         entity = data["enrichment_entity"]
@@ -65,7 +68,9 @@ class SpiderFootEnrichment:
 
         cfg = self._settings
         # `full` keeps SpiderFoot's whole Passive group; `lean` sends an explicit module list.
-        scan_options = {"modules": lean_modules()} if cfg.profile == "lean" else {}
+        # Keyed modules join `lean` only once their key is stored and verified in SpiderFoot.
+        keyed = self._apply_keys()
+        scan_options = {"modules": lean_modules_with(keyed)} if cfg.profile == "lean" else {}
         objects: dict[str, Any] = {}
         queue: list[tuple[str, int]] = [(root, 0)]
         known = {_norm(root)}  # scanned or queued: never scan twice
@@ -204,6 +209,20 @@ class SpiderFootEnrichment:
 
     def _authorized(self, target: str) -> bool:
         return is_allowed(target, self._settings.allowed_domains)
+
+    def _apply_keys(self) -> frozenset[str]:
+        """Store the owner's free API keys in SpiderFoot; returns the modules whose key is verified. Never logs values."""
+        if self._key_ring is None or not self._key_ring.entries:
+            return frozenset()
+        log = self._helper.connector_logger
+        result = apply_keys(self._key_ring, self._client)
+        if result.failed:
+            log.warning(
+                "API keys not applied (option missing or not stored)", {"options": result.failed}
+            )
+        if result.applied:
+            log.info("API keys applied", {"modules": sorted(result.applied)})
+        return result.applied
 
     def _snapshot_note(
         self, objects, root, root_outcome, root_mapped, root_dns, root_errors, complete
@@ -345,7 +364,16 @@ def main() -> None:
         dns_check=check_domain,
         knowledge_lookup=lambda values: query_known(helper.api.query, values),
         snapshot_lookup=lambda target: latest_snapshot(helper.api.query, target),
+        key_ring=(
+            load_keyring(settings.api_keys_file, load_snapshot())
+            if settings.api_keys_file
+            else None
+        ),
     )
+    if enrichment._key_ring is not None:  # names only, never values
+        helper.connector_logger.info(
+            "API keys loaded", {"modules": sorted(enrichment._key_ring.modules)}
+        )
     if settings.watch_interval_minutes:
         _start_watcher(helper, settings)
     helper.listen(message_callback=enrichment.process_message)

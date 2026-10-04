@@ -93,6 +93,12 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### Free API keys (optional)
+
+Keyed SpiderFoot modules (52 of them add data octifoot already imports: reputation flags, subdomains, passive DNS) run only if you give octifoot your own free keys through `SPIDERFOOT_API_KEYS_FILE`. Off by default; octifoot stays open source and adds no dependency.
+Each key is written into SpiderFoot and verified by reading it back (SpiderFoot answers `SUCCESS` to a write under a wrong name and stores nothing); key values never appear in logs, Notes or errors; a key never enables an active module.
+Details, the list of modules, the free tiers found and where keys are stored: [api-keys.md](api-keys.md).
+
 ### Automatic re-analysis (watch)
 
 Off by default. Set `SPIDERFOOT_WATCH_INTERVAL_MINUTES` (5 to 10080) and the connector re-analyses, by itself, the domains you opt in: put the label **`octifoot:watch`** on a `Domain-Name` observable in OpenCTI.

@@ -27,6 +27,7 @@ class Settings:
     max_depth: int = 0
     max_scans: int = 5
     profile: str = "full"
+    api_keys_file: str = ""  # path to the JSON file of free API keys; "" = none
     watch_interval_minutes: int = 0  # 0 = automatic re-analysis off
     watch_max_per_cycle: int = 3
     ui_url: str = (
@@ -105,6 +106,7 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         max_scans=_int(env, "SPIDERFOOT_MAX_SCANS", 5, 1, 20),
         profile=profile,
         ui_url=ui_url,
+        api_keys_file=(env.get("SPIDERFOOT_API_KEYS_FILE") or "").strip(),
         watch_interval_minutes=watch_interval,
         watch_max_per_cycle=_int(env, "SPIDERFOOT_WATCH_MAX_PER_CYCLE", 3, 1, 20),
     )

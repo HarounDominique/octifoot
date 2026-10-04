@@ -156,12 +156,16 @@ services:
       - SPIDERFOOT_PROFILE=${SPIDERFOOT_PROFILE:-}
       - SPIDERFOOT_UI_URL=${SPIDERFOOT_UI_URL:-http://localhost:5001}
       - SPIDERFOOT_WATCH_INTERVAL_MINUTES=${SPIDERFOOT_WATCH_INTERVAL_MINUTES:-0}
+      - SPIDERFOOT_API_KEYS_FILE=${SPIDERFOOT_API_KEYS_FILE:-}
       - SPIDERFOOT_WATCH_MAX_PER_CYCLE=${SPIDERFOOT_WATCH_MAX_PER_CYCLE:-3}
       - SPIDERFOOT_TIMEOUT_SECONDS=${SPIDERFOOT_TIMEOUT_SECONDS:-900}
       - SPIDERFOOT_SCORE=${SPIDERFOOT_SCORE:-30}
       # Iterative expansion is opt-in (0 = single scan). Only allowlisted subdomains are ever expanded.
       - SPIDERFOOT_MAX_DEPTH=${SPIDERFOOT_MAX_DEPTH:-0}
       - SPIDERFOOT_MAX_SCANS=${SPIDERFOOT_MAX_SCANS:-5}
+    volumes:
+      # Optional free API keys (docs/api-keys.md). Read-only; everything in it except the README and the example is git-ignored.
+      - ./secrets:/run/octifoot-secrets:ro
     depends_on:
       opencti: {condition: service_healthy}
       spiderfoot: {condition: service_started}

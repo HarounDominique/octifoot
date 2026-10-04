@@ -118,3 +118,81 @@ def test_denied_modules_produce_nothing_the_connector_imports():
     snapshot = load_snapshot()
     for name in CLOUD_BUCKET_MODULES:
         assert not set(snapshot[name]["produced"]) & IMPORTED_EVENTS, name
+
+
+# --- keyed modules (free API keys provided by the owner) ---
+
+
+def _keyed(flags, name="sfp_k", watched=("DOMAIN_NAME",)):
+    return {
+        name: {
+            "useCases": ["Passive"],
+            "flags": flags,
+            "watched": list(watched),
+            "produced": ["IP_ADDRESS"],
+        }
+    }
+
+
+def test_a_keyed_module_is_left_out_without_its_key_and_in_with_it():
+    meta = _keyed(["apikey"])
+    assert derive_lean(meta, frozenset()) == []
+    assert derive_lean(meta, frozenset(), frozenset({"sfp_k"})) == ["sfp_k"]
+
+
+def test_a_key_never_turns_an_invasive_or_tool_module_on():
+    for flags in (["apikey", "invasive"], ["apikey", "tool"]):
+        assert derive_lean(_keyed(flags), frozenset(), frozenset({"sfp_k"})) == []
+
+
+def test_the_deny_list_still_wins_over_a_key():
+    assert derive_lean(_keyed(["apikey"]), frozenset({"sfp_k"}), frozenset({"sfp_k"})) == []
+
+
+def test_a_key_does_not_make_an_unreachable_module_run():
+    meta = _keyed(["apikey"], watched=("SOMETHING_NEVER_PRODUCED",))
+    assert derive_lean(meta, frozenset(), frozenset({"sfp_k"})) == []
+
+
+def test_without_keys_the_committed_list_is_returned_unchanged():
+    from spiderfoot_connector.profiles import lean_modules_with
+
+    assert lean_modules_with(frozenset()) == lean_modules()
+
+
+def test_with_real_keyed_modules_the_list_grows_by_exactly_those_modules():
+    from spiderfoot_connector.profiles import lean_modules_with
+
+    snapshot = load_snapshot()
+    keyed = sorted(
+        n
+        for n, m in snapshot.items()
+        if "apikey" in m["flags"]
+        and "Passive" in m["useCases"]
+        and not {"invasive", "tool"} & set(m["flags"])
+        and n not in DENY
+        and n not in lean_modules()
+    )
+    assert keyed, "the snapshot should contain keyed passive modules"
+    pick = frozenset(keyed[:3])
+    grown = lean_modules_with(pick)
+    assert set(lean_modules()) <= set(grown)
+    assert set(grown) - set(lean_modules()) <= pick
+    assert grown == sorted(grown)
+
+
+def test_unknown_and_active_keyed_names_are_ignored_by_the_real_list():
+    from spiderfoot_connector.profiles import lean_modules_with
+
+    snapshot = load_snapshot()
+    # in SpiderFoot v4.0 no module is both keyed and active, so this guard is defensive; use one if it ever exists
+    active = next(
+        (
+            n
+            for n, m in snapshot.items()
+            if "apikey" in m["flags"] and {"invasive", "tool"} & set(m["flags"])
+        ),
+        None,
+    )
+    names = frozenset({"sfp_does_not_exist", *([active] if active else [])})
+    assert lean_modules_with(names) == lean_modules()

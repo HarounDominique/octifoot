@@ -6,6 +6,7 @@ from the target, minus a small deny-list of modules that only feed data we disca
 """
 
 import json
+from collections.abc import Iterable
 from functools import lru_cache
 from importlib import resources
 
@@ -41,15 +42,23 @@ SUBDOMAIN_SOURCES = frozenset(
     }
 )
 _SEED_EVENTS = frozenset({"ROOT", "DOMAIN_NAME", "INTERNET_NAME"})
-_EXCLUDED_FLAGS = frozenset({"apikey", "invasive", "tool"})
+_ALWAYS_EXCLUDED_FLAGS = frozenset({"invasive", "tool"})  # a key never enables an active module
 
 
-def derive_lean(meta: dict[str, dict], deny: frozenset[str]) -> list[str]:
-    """Passive, keyless, non-invasive modules reachable from the target, minus deny."""
+def derive_lean(
+    meta: dict[str, dict], deny: frozenset[str], keyed: frozenset[str] = frozenset()
+) -> list[str]:
+    """Passive, non-invasive modules reachable from the target, minus deny.
+
+    Modules that need an API key are included only when ``keyed`` says the owner supplied one.
+    """
     eligible = {
         name
         for name, m in meta.items()
-        if "Passive" in m["useCases"] and not _EXCLUDED_FLAGS & set(m["flags"]) and name not in deny
+        if "Passive" in m["useCases"]
+        and not _ALWAYS_EXCLUDED_FLAGS & set(m["flags"])
+        and ("apikey" not in m["flags"] or name in keyed)
+        and name not in deny
     }
     seen = set(_SEED_EVENTS)
     chosen: set[str] = set()
@@ -79,3 +88,11 @@ def load_snapshot() -> dict[str, dict]:
 def lean_modules() -> list[str]:
     """The committed lean module list (regenerate when the SpiderFoot pin changes)."""
     return _read("lean_modules.json")  # type: ignore[return-value]
+
+
+def lean_modules_with(keyed: Iterable[str]) -> list[str]:
+    """The lean list plus the keyed modules whose key was applied (unknown names are ignored)."""
+    keyed_set = frozenset(keyed)
+    if not keyed_set:
+        return lean_modules()
+    return derive_lean(load_snapshot(), DENY, keyed_set)
