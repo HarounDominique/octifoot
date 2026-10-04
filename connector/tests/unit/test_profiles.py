@@ -1,0 +1,95 @@
+import json
+from pathlib import Path
+
+from spiderfoot_connector.profiles import DENY, derive_lean, lean_modules, load_snapshot
+
+REQUIRED = {
+    "sfp_crt",
+    "sfp_dnsraw",
+    "sfp_dnsresolve",
+    "sfp_maltiverse",
+    "sfp_ripe",
+    "sfp_voipbl",
+}
+
+
+def mod(watched, produced, uses=("Passive",), flags=()):
+    return {
+        "useCases": list(uses),
+        "flags": list(flags),
+        "watched": list(watched),
+        "produced": list(produced),
+    }
+
+
+def test_reachable_passive_modules_are_included():
+    meta = {
+        "a": mod(["DOMAIN_NAME"], ["IP_ADDRESS"]),
+        "b": mod(["IP_ADDRESS"], ["BGP_AS_MEMBER"]),
+    }
+    assert derive_lean(meta, frozenset()) == ["a", "b"]
+
+
+def test_unreachable_module_excluded():
+    meta = {"a": mod(["DOMAIN_NAME"], ["X"]), "c": mod(["NEVER_PRODUCED"], ["Y"])}
+    assert derive_lean(meta, frozenset()) == ["a"]
+
+
+def test_wildcard_watcher_included():
+    assert derive_lean({"w": mod(["*"], [])}, frozenset()) == ["w"]
+
+
+def test_non_passive_apikey_invasive_tool_excluded():
+    meta = {
+        "ok": mod(["DOMAIN_NAME"], []),
+        "active": mod(["DOMAIN_NAME"], [], uses=("Footprint", "Investigate")),
+        "key": mod(["DOMAIN_NAME"], [], flags=("apikey",)),
+        "inv": mod(["DOMAIN_NAME"], [], flags=("invasive",)),
+        "tool": mod(["DOMAIN_NAME"], [], flags=("tool",)),
+    }
+    assert derive_lean(meta, frozenset()) == ["ok"]
+
+
+def test_deny_list_removes_module_and_what_only_it_reaches():
+    meta = {
+        "a": mod(["DOMAIN_NAME"], ["IP_ADDRESS"]),
+        "bad": mod(["IP_ADDRESS"], ["CO_HOSTED_SITE"]),
+        "downstream": mod(["CO_HOSTED_SITE"], ["Z"]),
+    }
+    assert derive_lean(meta, frozenset({"bad"})) == ["a"]
+
+
+def test_output_is_sorted_and_deterministic():
+    meta = {n: mod(["DOMAIN_NAME"], []) for n in ("zeta", "alpha", "mid")}
+    assert derive_lean(meta, frozenset()) == ["alpha", "mid", "zeta"]
+
+
+# --- real SpiderFoot v4.0 snapshot ---
+
+
+def test_real_lean_list_is_safe_and_useful():
+    snapshot = load_snapshot()
+    lean = lean_modules()
+    assert REQUIRED <= set(lean)
+    assert DENY.isdisjoint(lean)
+    for name in lean:
+        meta = snapshot[name]
+        assert "Passive" in meta["useCases"], name
+        assert not {"apikey", "invasive", "tool"} & set(meta["flags"]), name
+
+
+def test_real_lean_is_a_strict_subset_of_passive():
+    snapshot = load_snapshot()
+    passive = {n for n, m in snapshot.items() if "Passive" in m["useCases"]}
+    assert set(lean_modules()) < passive
+
+
+def test_committed_list_matches_derivation():
+    committed = json.loads(
+        (Path(__file__).parents[2] / "src/spiderfoot_connector/data/lean_modules.json").read_text()
+    )
+    assert committed == derive_lean(load_snapshot(), DENY)
+
+
+def test_deny_list_is_the_evidence_based_pair():
+    assert DENY == frozenset({"sfp_robtex", "sfp_countryname"})
