@@ -1,6 +1,7 @@
 """OpenCTI INTERNAL_ENRICHMENT wiring: Domain-Name -> SpiderFoot scan -> STIX bundle."""
 
 import os
+import sys
 import threading
 from collections import Counter
 from collections.abc import Callable
@@ -20,7 +21,7 @@ from spiderfoot_connector.changes import (
     summarize,
 )
 from spiderfoot_connector.client import SpiderFootClient, SpiderFootError
-from spiderfoot_connector.config import Settings, load_settings
+from spiderfoot_connector.config import ConfigError, Settings, load_settings
 from spiderfoot_connector.dnschecks import DnsFacts, check_domain
 from spiderfoot_connector.expansion import plan_next
 from spiderfoot_connector.knowledge import Known, query_known, render_knowledge
@@ -354,8 +355,23 @@ def _start_watcher(helper: Any, settings: Settings) -> None:
     )
 
 
+def _load_configuration() -> tuple[Settings, KeyRing | None]:
+    """Read and validate every setting before the connector registers; a bad one exits with a readable message."""
+    try:
+        settings = load_settings(os.environ)
+        ring = (
+            load_keyring(settings.api_keys_file, load_snapshot())
+            if settings.api_keys_file
+            else None
+        )
+    except ConfigError as exc:
+        print(f"octifoot: configuration error: {exc}", file=sys.stderr, flush=True)
+        raise SystemExit(2) from exc
+    return settings, ring
+
+
 def main() -> None:
-    settings = load_settings(os.environ)
+    settings, key_ring = _load_configuration()
     helper = OpenCTIConnectorHelper({})
     enrichment = SpiderFootEnrichment(
         helper,
@@ -364,16 +380,10 @@ def main() -> None:
         dns_check=check_domain,
         knowledge_lookup=lambda values: query_known(helper.api.query, values),
         snapshot_lookup=lambda target: latest_snapshot(helper.api.query, target),
-        key_ring=(
-            load_keyring(settings.api_keys_file, load_snapshot())
-            if settings.api_keys_file
-            else None
-        ),
+        key_ring=key_ring,
     )
-    if enrichment._key_ring is not None:  # names only, never values
-        helper.connector_logger.info(
-            "API keys loaded", {"modules": sorted(enrichment._key_ring.modules)}
-        )
+    if key_ring is not None:  # names only, never values
+        helper.connector_logger.info("API keys loaded", {"modules": sorted(key_ring.modules)})
     if settings.watch_interval_minutes:
         _start_watcher(helper, settings)
     helper.listen(message_callback=enrichment.process_message)

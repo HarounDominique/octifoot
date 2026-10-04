@@ -504,3 +504,42 @@ def test_a_key_that_could_not_be_stored_is_named_in_the_log_but_not_its_value(he
     enrichment.process_message(message("example.com"))
     logged = str(helper.connector_logger.mock_calls)
     assert "sfp_not_there:api_key" in logged and SECRET_KEY not in logged
+
+
+# --- configuration errors must be readable and happen before the connector registers ---
+
+
+def test_a_bad_key_file_stops_main_with_a_readable_message_before_registering(
+    monkeypatch, tmp_path, capsys
+):
+    from spiderfoot_connector import connector
+
+    bad = tmp_path / "keys.json"
+    bad.write_text('{"sfp_nope": "' + SECRET_KEY + '"}')
+    monkeypatch.setenv("SPIDERFOOT_URL", "http://sf:5001")
+    monkeypatch.setenv("SPIDERFOOT_ALLOWED_DOMAINS", "example.com")
+    monkeypatch.setenv("SPIDERFOOT_API_KEYS_FILE", str(bad))
+
+    def must_not_register(*args, **kwargs):
+        raise AssertionError("the connector registered despite an invalid configuration")
+
+    monkeypatch.setattr(connector, "OpenCTIConnectorHelper", must_not_register)
+    with pytest.raises(SystemExit) as exit_info:
+        connector.main()
+    assert exit_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "configuration error" in err and "SPIDERFOOT_API_KEYS_FILE" in err and "sfp_nope" in err
+    assert SECRET_KEY not in err
+
+
+def test_a_missing_allowlist_also_stops_main_readably(monkeypatch, capsys):
+    from spiderfoot_connector import connector
+
+    monkeypatch.delenv("SPIDERFOOT_ALLOWED_DOMAINS", raising=False)
+    monkeypatch.setenv("SPIDERFOOT_URL", "http://sf:5001")
+    monkeypatch.setattr(
+        connector, "OpenCTIConnectorHelper", lambda *a, **k: (_ for _ in ()).throw(AssertionError())
+    )
+    with pytest.raises(SystemExit) as exit_info:
+        connector.main()
+    assert exit_info.value.code == 2 and "SPIDERFOOT_ALLOWED_DOMAINS" in capsys.readouterr().err

@@ -37,3 +37,8 @@ Run a long measurement from its own `git worktree` (detached) so editing or swit
 _derived_from: reflection/opencti-knowledge.md, reflection/scan-changes.md, reflection/watch-automation.md · evidence_count: 3 · last_validated: 2026-10-04_
 
 Test data seeded into a shared system must be removed by id and then proven gone with a query; a delete call that "returned no output" may have used a wrong operation and left the data in place.
+
+### validate-configuration-before-registering-and-print-errors-where-the-operator-looks
+_derived_from: reflection/api-keys.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+Validate every setting before the service registers or starts work, and on failure print a one-line reason to stderr and exit non-zero; a traceback that never reaches `docker compose logs` leaves the operator with a silent restart loop.
