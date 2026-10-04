@@ -9,7 +9,7 @@ _derived_from: reflection/spiderfoot-connector.md · evidence_count: 1 · last_v
 Before writing a client or fixtures for a third-party HTTP API, read the upstream handler source at the pinned tag (parameter values, casing, response shape, terminal states) instead of relying on docs or memory.
 
 ### mapper-fixtures-from-real-payloads
-_derived_from: reflection/spiderfoot-connector.md · evidence_count: 1 · last_validated: 2026-10-04_
+_derived_from: reflection/spiderfoot-connector.md, reflection/x509-certificates.md · evidence_count: 2 · last_validated: 2026-10-04_
 
 Build mapper test fixtures from the field names the upstream code actually emits, and count and report unmapped input types instead of dropping them silently.
 
@@ -24,7 +24,7 @@ _derived_from: reflection/iterative-scan-loop.md, reflection/asn-enrichment.md, 
 When a change adds fields a downstream system ingests, import them into the real system once and read them back; asserting the generated object does not prove the system kept it (OpenCTI silently drops external references without external_id or url).
 
 ### replay-recorded-events-when-upstream-is-nondeterministic
-_derived_from: reflection/iterative-scan-loop.md, reflection/reputation-and-infra-notes.md · evidence_count: 2 · last_validated: 2026-10-04_
+_derived_from: reflection/iterative-scan-loop.md, reflection/reputation-and-infra-notes.md, reflection/x509-certificates.md · evidence_count: 3 · last_validated: 2026-10-04_
 
 If a third-party source gives different results per run, save the real events from a run that exhibits the case and replay them through the code into the real target, instead of waiting for a fresh run to reproduce it.
 
