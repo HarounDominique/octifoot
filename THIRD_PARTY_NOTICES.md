@@ -25,8 +25,10 @@ How octifoot uses it:
   (module names, `flags`, `useCases`, `watched` and `produced` event types) read from SpiderFoot
   v4.0, and `lean_modules.json` is a list generated from it. They hold interface facts, not SpiderFoot
   code, but they originate from a GPL-2.0 work. Treat them as derived from SpiderFoot v4.0 and
-  Copyright (c) Steve Micallef; they are the one part of this repository whose licensing you
-  may want to review before reusing it outside this project.
+  Copyright (c) Steve Micallef. `sf_event_types_v4.0.json` is the same kind of snapshot of SpiderFoot's event-type table
+  (`eventDetails` in `spiderfoot/db.py` at `v4.0`: id, description, category), and `event_catalogue.json` with
+  `docs/event-catalogue.md` are generated from it and from the module snapshot. Treat all of these as derived from SpiderFoot v4.0 and
+  Copyright (c) Steve Micallef; they are the part of this repository whose licensing you may want to review before reusing it outside this project.
 - **If you build and publish a SpiderFoot image** (for example to a public registry), you are
   distributing GPL-2.0 software and must meet its terms, including offering the corresponding source.
 
