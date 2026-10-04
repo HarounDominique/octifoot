@@ -122,12 +122,12 @@ services:
       mode: replicated
       replicas: 1
 
-  # No official SpiderFoot image exists on Docker Hub: build the MIT-licensed upstream
-  # repo at a fixed git tag. The web UI has no authentication, so it is bound to
-  # localhost only and reachable by the connector over the internal network.
+  # No official SpiderFoot image exists on Docker Hub: ./spiderfoot/Dockerfile builds the
+  # MIT-licensed upstream repo at a fixed git tag. The web UI has no authentication, so it
+  # is bound to localhost only and reachable by the connector over the internal network.
   spiderfoot:
     build:
-      context: https://github.com/smicallef/spiderfoot.git#v4.0
+      context: ./spiderfoot
     restart: unless-stopped
     volumes:
       - spiderfootdata:/var/lib/spiderfoot

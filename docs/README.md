@@ -27,7 +27,10 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 ```
 
 OpenCTI: <http://localhost:8080> (admin from `.env`). SpiderFoot UI: <http://localhost:5001>
-(no authentication, bound to localhost only). Needs roughly 8 GB of free RAM.
+(no authentication, bound to localhost only). Needs roughly 8 GB of RAM for Docker; set
+`ELASTIC_MEMORY_SIZE=2G` if you have less. SpiderFoot is built by `deploy/spiderfoot/Dockerfile`
+from the unmodified upstream `v4.0` tag, because upstream's own Dockerfile no longer builds
+(its `pyyaml<6` pin fails to compile on Alpine 3.12).
 
 In OpenCTI open a `Domain-Name` observable, then enrichment → **SpiderFoot**.
 
@@ -70,9 +73,9 @@ pytest && ruff check . && ruff format --check .
 
 ## Manual E2E checklist
 
-Not automated in v1, and **not yet run**: the build environment had no Docker daemon, so
-the image build and the full stack are unverified. Unit and integration tests (fake
-SpiderFoot server) pass.
+Not automated in v1. Run manually on 2026-10-04 against the full stack (OpenCTI 7.261002.0,
+SpiderFoot v4.0) with an owned domain: steps 1-5 passed. The scan took ~7 minutes (436
+events), imported 2 IPs, 2 related domains and 1 Note; a second run created no duplicates.
 
 1. `docker compose ... up -d --build` finishes; `connector-spiderfoot` registers in
    OpenCTI → Data → Ingestion → Connectors.
@@ -93,4 +96,6 @@ SpiderFoot server) pass.
   *Future* in the spec. It needs allowlist propagation, depth limits and scan dedupe.
 - SpiderFoot upstream's last commit is from 2023; its HTTP API is not a stable contract.
   Versions are pinned (`v4.0`) for that reason.
+- Next iteration: map `MALICIOUS_IPADDR`, `MALICIOUS_COHOST`, `MALICIOUS_SUBNET` (real CTI
+  signals seen in the E2E scan), then `AFFILIATE_EMAILADDR` and `IPV6_ADDRESS`.
 - Only OpenCTI Community Edition features are used.
