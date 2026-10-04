@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -66,3 +67,81 @@ def test_ipv6_mapped_with_relationship():
 
 def test_ipv6_invalid_counted():
     assert run([ev("IPV6_ADDRESS", "not-an-ip")]).invalid == 1
+
+
+@pytest.fixture
+def risk():
+    return run(json.loads(FIXTURE.read_text()))
+
+
+def ips(result):
+    return {o.value: o for o in by_type(result, "ipv4-addr") + by_type(result, "ipv6-addr")}
+
+
+def test_flagged_ip_gets_label_and_feed_reference(risk):
+    ip = ips(risk)["203.0.113.10"]
+    assert ip.x_opencti_labels == ["spiderfoot:malicious"]
+    sources = [r["source_name"] for r in ip.x_opencti_external_references]
+    assert sources == ["SpiderFoot", "Maltiverse"]
+
+
+def test_unflagged_ip_has_no_label(risk):
+    assert not hasattr(ips(risk)["2001:db8::10"], "x_opencti_labels")
+
+
+def test_two_feeds_one_label_two_references():
+    r = run(
+        [
+            ev("IP_ADDRESS", "203.0.113.10", module="sfp_dnsresolve"),
+            ev("MALICIOUS_IPADDR", "Maltiverse [203.0.113.10]"),
+            ev("MALICIOUS_IPADDR", "OtherFeed [203.0.113.10]"),
+        ]
+    )
+    ip = ips(r)["203.0.113.10"]
+    assert ip.x_opencti_labels == ["spiderfoot:malicious"]
+    assert [x["source_name"] for x in ip.x_opencti_external_references] == [
+        "SpiderFoot",
+        "Maltiverse",
+        "OtherFeed",
+    ]
+
+
+def test_flagged_ip_not_in_output_is_skipped_and_counted():
+    r = run([ev("MALICIOUS_IPADDR", "Maltiverse [198.51.100.99]")])
+    assert ips(r) == {}
+    assert r.flags_skipped == 1
+
+
+def test_subnet_and_cohost_only_in_note_never_objects(risk):
+    values = {o.value for o in risk.objects if hasattr(o, "value")}
+    assert not any("cohost" in v or "/24" in v for v in values)
+    note = by_type(risk, "note")[0].content
+    assert "VoIP Blacklist (VoIPBL): 203.0.113.0/24" in note
+    assert "Comodo Secure DNS: cohost-1.example.net" in note
+
+
+def test_note_lists_at_most_20_then_counts_the_rest():
+    events = [ev("MALICIOUS_COHOST", f"Feed [h{i:02d}.example.net]") for i in range(23)]
+    note = by_type(run(events), "note")[0].content
+    assert note.count("Feed: h") == 20
+    assert "and 3 more" in note
+
+
+def test_affiliate_events_never_produce_objects(risk):
+    values = {o.value for o in risk.objects if hasattr(o, "value")}
+    assert "owner@cohost-1.example.net" not in values
+    assert "198.51.100.5" not in values
+    assert "2001:db8:ffff::5" not in values
+    assert risk.unmapped["AFFILIATE_EMAILADDR"] == 2
+    assert risk.unmapped["AFFILIATE_IPADDR"] == 1
+    assert risk.unmapped["AFFILIATE_IPV6_ADDRESS"] == 1
+
+
+def test_unparsable_feed_data_counted_invalid():
+    r = run([ev("MALICIOUS_SUBNET", "garbage"), ev("MALICIOUS_IPADDR", "garbage")])
+    assert r.invalid == 2
+
+
+def test_risk_output_is_deterministic():
+    events = json.loads(FIXTURE.read_text())
+    assert [o.id for o in run(events).objects] == [o.id for o in run(events).objects]
