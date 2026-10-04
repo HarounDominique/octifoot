@@ -27,6 +27,7 @@ MAPPED_EVENTS = DOMAIN_EVENTS | IP_EVENTS | EMAIL_EVENTS
 # Reputation signals. A flagged IP that is part of the output is labelled; subnet and
 # co-host hits describe shared infrastructure, so they are only listed in the Note.
 FLAG_IP_EVENT = "MALICIOUS_IPADDR"
+FLAG_NAME_EVENT = "MALICIOUS_INTERNET_NAME"
 LISTED_EVENTS = {"MALICIOUS_SUBNET", "MALICIOUS_COHOST"}
 MALICIOUS_LABEL = "spiderfoot:malicious"
 MAX_NOTE_LINES = 20
@@ -36,9 +37,25 @@ NETBLOCK_EVENTS = {"NETBLOCK_MEMBER", "NETBLOCKV6_MEMBER"}
 AS_EVENT = "BGP_AS_MEMBER"
 MAX_ASN = 4_294_967_295
 
+# Who runs the target's registration, hosting, name servers and mail: text in the Note only.
+INFRA_EVENTS = {
+    "DOMAIN_REGISTRAR": "registrar",
+    "PROVIDER_HOSTING": "hosting",
+    "PROVIDER_DNS": "DNS",
+    "PROVIDER_MAIL": "mail",
+}
+MAX_INFRA_VALUES = 5
+
 # Every event type that ends up as an object, a label or a Note line. A scan profile must keep
 # producing all of these (checked against SpiderFoot's module metadata in the profile tests).
-IMPORTED_EVENTS = MAPPED_EVENTS | {FLAG_IP_EVENT} | LISTED_EVENTS | NETBLOCK_EVENTS | {AS_EVENT}
+IMPORTED_EVENTS = (
+    MAPPED_EVENTS
+    | {FLAG_IP_EVENT, FLAG_NAME_EVENT}
+    | LISTED_EVENTS
+    | NETBLOCK_EVENTS
+    | {AS_EVENT}
+    | set(INFRA_EVENTS)
+)
 
 
 @dataclass
@@ -48,6 +65,8 @@ class MapResult:
     false_positives: int = 0
     invalid: int = 0
     flags_skipped: int = 0
+    name_flags_skipped: int = 0
+    infra: dict[str, set[str]] = field(default_factory=dict)  # kind -> provider values
     discovered_domains: list[str] = field(default_factory=list)  # INTERNET_NAME, in order
     as_ips: dict[int, set[str]] = field(default_factory=dict)  # ASN -> imported IPs in it
     listed: list[tuple[str, str, str]] = field(default_factory=list)  # (event, feed, value)
@@ -86,6 +105,14 @@ def _ref(scan_id: str, module: str) -> list[dict[str, str]]:
     ]
 
 
+def _flag_ref(scan_id: str, feed: str, flag_module: str) -> dict[str, str]:
+    return {
+        "source_name": feed,
+        "external_id": scan_id,
+        "description": f"Flagged malicious by {feed} (SpiderFoot module {flag_module})",
+    }
+
+
 def _relationship(kind: str, source: Any, target: Any, identity_id: str, refs: list[dict]):
     return stix2.Relationship(
         id=StixCoreRelationship.generate_id(kind, source.id, target.id),
@@ -116,7 +143,31 @@ def map_events(
         identity_class="system",
         description="SpiderFoot OSINT automation (passive enrichment)",
     )
-    target_obj = stix2.DomainName(value=target)
+    # Flagged hostnames are collected first so the label does not depend on event order.
+    flagged_names: dict[str, list[tuple[str, str]]] = {}  # hostname -> [(feed, module)]
+    for ev in events:
+        if ev.get("event_type") != FLAG_NAME_EVENT or ev.get("false_positive"):
+            continue
+        parsed = parse_feed_event(str(ev.get("data", "")).strip())
+        host = _norm_domain(parsed[1]) if parsed else ""
+        if not _is_domain(host):
+            result.invalid += 1
+            continue
+        flagged_names.setdefault(host, []).append((parsed[0], str(ev.get("module", "unknown"))))
+
+    if target in flagged_names:
+        # Same STIX id as the bare observable, so OpenCTI merges the label onto the analyst's object.
+        refs = []
+        for feed, flag_module in flagged_names[target]:
+            refs += _ref(scan_id, flag_module) + [_flag_ref(scan_id, feed, flag_module)]
+        target_obj = stix2.DomainName(
+            value=target,
+            allow_custom=True,
+            x_opencti_labels=[MALICIOUS_LABEL],
+            x_opencti_external_references=refs,
+        )
+    else:
+        target_obj = stix2.DomainName(value=target)
     objects: dict[str, Any] = {identity.id: identity, target_obj.id: target_obj}
     domains: dict[str, Any] = {target: target_obj}
     emitted: set[tuple[str, str]] = set()
@@ -127,14 +178,7 @@ def map_events(
         refs = _ref(scan_id, module)
         extra = {}
         if flags:
-            refs += [
-                {
-                    "source_name": feed,
-                    "external_id": scan_id,
-                    "description": f"Flagged malicious by {feed} (SpiderFoot module {flag_module})",
-                }
-                for feed, flag_module in flags
-            ]
+            refs += [_flag_ref(scan_id, feed, flag_module) for feed, flag_module in flags]
             extra["x_opencti_labels"] = [MALICIOUS_LABEL]
         obj = factory(
             value=value,
@@ -174,6 +218,15 @@ def map_events(
         data = str(ev.get("data", "")).strip()
         module = str(ev.get("module", "unknown"))
 
+        if etype == FLAG_NAME_EVENT:
+            continue  # collected before the loop
+        if etype in INFRA_EVENTS:
+            value = _infra_value(etype, data)
+            if value:
+                result.infra.setdefault(INFRA_EVENTS[etype], set()).add(value)
+            else:
+                result.invalid += 1
+            continue
         if etype == FLAG_IP_EVENT or etype in LISTED_EVENTS:
             parsed = parse_feed_event(data)
             if parsed is None:
@@ -218,7 +271,9 @@ def map_events(
             if etype == "INTERNET_NAME":
                 result.discovered_domains.append(name)
             obs_score = score // AFFILIATE_SCORE_DIVISOR if etype.startswith("AFFILIATE") else score
-            domains[name] = observable(stix2.DomainName, name, module, obs_score)
+            domains[name] = observable(
+                stix2.DomainName, name, module, obs_score, flagged_names.get(name, [])
+            )
             relate("related-to", domains[name], target_obj, module)
 
         elif etype in EMAIL_EVENTS:
@@ -258,6 +313,9 @@ def map_events(
 
     emitted_ips = {o.value for o in objects.values() if o.type in ("ipv4-addr", "ipv6-addr")}
     result.flags_skipped = sum(1 for ip in flagged if ip not in emitted_ips)
+    result.name_flags_skipped = sum(
+        1 for name in flagged_names if name != target and name not in domains
+    )
 
     summary = _summary(result, objects, scan_id, target)
     note = stix2.Note(
@@ -275,6 +333,28 @@ def map_events(
     return result
 
 
+def _infra_value(etype: str, data: str) -> str:
+    value = data.strip()
+    if etype == "PROVIDER_HOSTING":
+        value = value.split(": ", 1)[0].strip()  # "name: https://url" -> "name"
+    elif etype in ("PROVIDER_DNS", "PROVIDER_MAIL"):
+        value = value.lower().rstrip(".")
+    return value
+
+
+def _infra_line(infra: dict[str, set[str]]) -> str:
+    parts = []
+    for kind in INFRA_EVENTS.values():
+        values = sorted(infra.get(kind, ()))
+        if not values:
+            continue
+        shown = ", ".join(values[:MAX_INFRA_VALUES])
+        if len(values) > MAX_INFRA_VALUES:
+            shown += f" and {len(values) - MAX_INFRA_VALUES} more"
+        parts.append(f"{kind}: {shown}")
+    return "Infrastructure (as reported by SpiderFoot): " + "; ".join(parts) if parts else ""
+
+
 def _summary(result: MapResult, objects: dict[str, Any], scan_id: str, target: str) -> str:
     kinds = Counter(o.type for o in objects.values() if o.type.endswith(("-name", "-addr")))
     lines = [
@@ -287,6 +367,9 @@ def _summary(result: MapResult, objects: dict[str, Any], scan_id: str, target: s
             for number, ips in sorted(result.as_ips.items())
         )
         lines.append(f"Autonomous systems: {systems}")
+    infra = _infra_line(result.infra)
+    if infra:
+        lines.append(infra)
     if result.unmapped:
         lines.append(
             "Unmapped event types (not imported): "
@@ -300,6 +383,10 @@ def _summary(result: MapResult, objects: dict[str, Any], scan_id: str, target: s
             lines.append(f"- and {len(hits) - MAX_NOTE_LINES} more")
     if result.flags_skipped:
         lines.append(f"Malicious flags on IPs not in this import: {result.flags_skipped}")
+    if result.name_flags_skipped:
+        lines.append(
+            f"Malicious flags on hostnames not in this import: {result.name_flags_skipped}"
+        )
     lines.append(
         f"False positives skipped: {result.false_positives}; invalid values: {result.invalid}"
     )

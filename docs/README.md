@@ -92,11 +92,19 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### Infrastructure providers
+
+`DOMAIN_REGISTRAR`, `PROVIDER_HOSTING`, `PROVIDER_DNS` and `PROVIDER_MAIL` appear as one line in the scan
+Note, for example `Infrastructure (as reported by SpiderFoot): registrar: ...; hosting: ...; DNS: a, b; mail: c`.
+Values are sorted and de-duplicated, five per kind at most. They are text, not objects or relationships:
+they say who runs the target's registration, hosting, name servers and mail, and nothing more.
+
 ### Reputation signals
 
 | SpiderFoot event | Handling |
 |---|---|
 | `MALICIOUS_IPADDR` | No new object. An imported IP flagged by a feed gets label `spiderfoot:malicious` and one external reference per feed (e.g. "Maltiverse"). Flags on IPs not in the import are only counted. |
+| `MALICIOUS_INTERNET_NAME` | Same as IPs, for hostnames: an imported hostname, or the scanned domain itself, flagged by a feed gets the label and one reference per feed. A flagged hostname that is not imported is only counted in the Note ("Malicious flags on hostnames not in this import"); it is never imported just to carry a label. |
 | `MALICIOUS_SUBNET`, `MALICIOUS_COHOST` | Listed in the scan Note (feed, value; max 20 lines, then "and N more"). Never objects. |
 
 Why not objects: in a real scan of a domain behind Cloudflare, the "malicious subnet" was
@@ -104,6 +112,9 @@ Cloudflare's whole /20 and the "malicious co-hosts" were unrelated sites sharing
 Linking them to the target would present other companies' data as the target's. No STIX
 `Indicator` is created either: a feed flagging a shared CDN IP would yield false positives.
 Treat the label as a lead to verify, not a verdict.
+`BLACKLISTED_*` events are **not** treated as the same thing as `MALICIOUS_*`: some modules emit them for
+content filters (SpiderFoot's Cloudflare "Family" module flags benign adult-content or parked hosts), so
+they stay unmapped and are counted in the Note.
 Labels and references are additive: OpenCTI keeps them across scans, and reputation feeds are
 not deterministic (the same domain was flagged in one scan and not in the next), so a later
 scan without the flag does not remove an earlier one. Each feed reference carries the scan id,
@@ -112,8 +123,10 @@ so you can see which scan reported it.
 ### Deliberately not imported
 
 `AFFILIATE_EMAILADDR` is unreliable: the emails come from the WHOIS of co-hosted sites, not
-of the target. `AFFILIATE_IPADDR` / `AFFILIATE_IPV6_ADDRESS` are nameserver IPs. Open ports,
-banners, technologies and every other event type are also skipped. Skipped types are counted
+of the target. `AFFILIATE_IPADDR` / `AFFILIATE_IPV6_ADDRESS` are nameserver IPs. `PUBLIC_CODE_REPO`
+matches repositories by name, so it would credit other people's work to the target. Open ports, banners
+and technologies need active or API-key modules; the passive scans measured here produced none of those
+events. Every other event type is also skipped. Skipped types are counted
 in the Note and logs. False positives are dropped.
 Re-running a scan does not duplicate observables (deterministic STIX ids).
 
