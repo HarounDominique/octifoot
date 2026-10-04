@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from spiderfoot_connector.allowlist import parse_allowlist
 from spiderfoot_connector.profiles import PROFILES
@@ -26,6 +27,9 @@ class Settings:
     max_depth: int = 0
     max_scans: int = 5
     profile: str = "full"
+    ui_url: str = (
+        ""  # address of the SpiderFoot UI as the analyst's browser reaches it; "" = no links
+    )
 
 
 def _int(env: Mapping[str, str], key: str, default: int, lo: int, hi: int) -> int:
@@ -65,6 +69,13 @@ def load_settings(env: Mapping[str, str]) -> Settings:
     # lean was measured faster at identical imported objects (SPEC-fast-scan-profile, Deviations);
     # it only exists for the passive use case, so any other use case keeps the full module set.
     default_profile = "lean" if usecase == PASSIVE_USECASE else "full"
+    ui_url = (env.get("SPIDERFOOT_UI_URL") or "").strip().rstrip("/")
+    if ui_url:
+        parts = urlsplit(ui_url)
+        if parts.scheme not in ("http", "https") or not parts.netloc:
+            raise ConfigError(
+                f"SPIDERFOOT_UI_URL must be an http(s) URL with a host, got {ui_url!r}"
+            )
     profile = (env.get("SPIDERFOOT_PROFILE") or default_profile).strip().lower()
     if profile not in PROFILES:
         raise ConfigError(f"SPIDERFOOT_PROFILE must be one of {list(PROFILES)}, got {profile!r}")
@@ -81,4 +92,5 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         max_depth=_int(env, "SPIDERFOOT_MAX_DEPTH", 0, 0, 3),
         max_scans=_int(env, "SPIDERFOOT_MAX_SCANS", 5, 1, 20),
         profile=profile,
+        ui_url=ui_url,
     )

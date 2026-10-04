@@ -130,6 +130,7 @@ class SpiderFootEnrichment:
                 scan_status=outcome.status,
                 timeout_seconds=cfg.timeout_seconds,
                 timed_out=outcome.timed_out,
+                ui_url=cfg.ui_url,
             )
             if depth == 0:
                 root_mapped, root_dns, root_errors = mapped, dns_facts, source_errors
