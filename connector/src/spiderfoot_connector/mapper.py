@@ -260,6 +260,7 @@ def map_events(
 
     certs: dict[str, tuple[dict[str, Any], str]] = {}  # serial -> (parsed, module), first wins
     pending_ips: list[tuple[str, str, str]] = []
+    pending_hosting: list[tuple[str, str]] = []  # (source IP or host, "name: url")
     affiliate_hosts: set[str] = set()  # hostnames of other parties, never imported
     flagged: dict[str, list[tuple[str, str]]] = {}  # ip -> [(feed, module)]
     block_of_ip: dict[str, str] = {}  # ip -> netblock CIDR
@@ -295,11 +296,14 @@ def map_events(
                 certs.setdefault(cert["serial"], (cert, module))
             continue
         if etype in INFRA_EVENTS:
-            value = _infra_value(etype, data)
-            if value:
-                result.infra.setdefault(INFRA_EVENTS[etype], set()).add(value)
+            source = str(ev.get("source_data", ""))
+            if etype == "PROVIDER_HOSTING":
+                pending_hosting.append((source, data))  # source is an IP: judged once IPs are known
+            elif not _is_target_or_parent(source, target):
+                # e.g. the MX of a provider's domain seen while resolving a CNAME target
+                result.unmapped[f"{etype} (not the target's)"] += 1
             else:
-                result.invalid += 1
+                _add_infra(result, etype, data)
             continue
         if etype == FLAG_IP_EVENT or etype in LISTED_EVENTS:
             parsed = parse_feed_event(data)
@@ -418,6 +422,11 @@ def map_events(
         result.cert_info.append((parsed["cn"], parsed.get("not_after")))
 
     emitted_ips = {o.value for o in objects.values() if o.type in ("ipv4-addr", "ipv6-addr")}
+    for source, data in pending_hosting:
+        if _is_target_or_parent(source, target) or _norm_ip(source) in emitted_ips:
+            _add_infra(result, "PROVIDER_HOSTING", data)
+        else:
+            result.unmapped["PROVIDER_HOSTING (not the target's)"] += 1
     result.flagged = sorted(
         [
             (n, sorted({f for f, _ in fs}))
@@ -572,6 +581,21 @@ def _txt_line(result: MapResult) -> str:
     if result.txt_other:
         parts.append(f"other records: {len(result.txt_other)}")
     return "DNS TXT (as reported by SpiderFoot): " + "; ".join(parts) if parts else ""
+
+
+def _norm_ip(value: str) -> str:
+    try:
+        return str(ipaddress.ip_address(value.strip()))
+    except ValueError:
+        return ""
+
+
+def _add_infra(result: MapResult, etype: str, data: str) -> None:
+    value = _infra_value(etype, data)
+    if value:
+        result.infra.setdefault(INFRA_EVENTS[etype], set()).add(value)
+    else:
+        result.invalid += 1
 
 
 def _infra_value(etype: str, data: str) -> str:

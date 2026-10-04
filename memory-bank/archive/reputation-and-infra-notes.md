@@ -17,6 +17,11 @@ Closed 2026-10-04 · Spec: [SPEC-reputation-and-infra-notes.md](../specs/SPEC-re
 
 None. Scope was narrowed from the archives' "possible next" list on evidence (no passive port/banner/technology events; `BLACKLISTED_*` is not `MALICIOUS_*`).
 
+## Correction (2026-10-04)
+
+The `Infrastructure` line did not filter events by source, so a provider's MX/NS/registrar seen in the same scan appeared as the target's (bugoverflow.com showed `mail: mail.dinaserver.com`, but it has no MX).
+Fixed by [archive/fix-infra-attribution.md](fix-infra-attribution.md).
+
 ## Not done / next
 
 - Needing their own specs: `Indicator` objects with a CDN false-positive policy, AS names (another data source), non-CTI entities, an OpenCTI-triggered bidirectional loop (first verify multi-scan expansion live on an owned domain).

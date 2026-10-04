@@ -148,7 +148,8 @@ configuration noise (`sfp_customfeed` without a URL, `sfp_flickr` without a key)
 
 `DOMAIN_REGISTRAR`, `PROVIDER_HOSTING`, `PROVIDER_DNS` and `PROVIDER_MAIL` appear as one line in the scan
 Note, for example `Infrastructure (as reported by SpiderFoot): registrar: ...; hosting: ...; DNS: a, b; mail: c`.
-Values are sorted and de-duplicated, five per kind at most. They are text, not objects or relationships:
+Only records whose source is the scanned domain (or a parent of it) count; hosting counts only for an IP that was imported for the target. Records from a provider's domain
+seen in the same scan (for example the MX of the domain a CNAME points to) are counted under Unmapped as "not the target's". Values are sorted and de-duplicated, five per kind at most. They are text, not objects or relationships:
 they say who runs the target's registration, hosting, name servers and mail, and nothing more.
 
 ### Reputation signals
