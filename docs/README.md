@@ -93,6 +93,16 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### What changed since the last scan
+
+Each enrichment of a root target writes a Note `octifoot snapshot for <target>: <summary>` (for example `3 changes since 2026-10-04`, `no changes since ...` or `first snapshot`). Its text lists, per category, what was
+**added** and what was **not seen this time**: hostnames, IPs, emails, AS numbers, name servers, mail hosts; certificates (additions only, because the import is capped at the 10 newest); registrar and hosting changes;
+SPF and DMARC state changes (only when the direct DNS check ran and both snapshots know the state). It ends with a machine-readable `Snapshot (...)` line: that line is the state, kept in OpenCTI instead of the container.
+The next enrichment reads the newest snapshot Note of the same target (the abstract must start with `octifoot snapshot for <target>:`) and compares. Deleting those Notes resets the baseline.
+
+Disappearances are reported only when **both** scans were complete (finished, not stopped by the timeout, no failed sub-scan): an incomplete scan or a failing source would make things look gone. When this scan's subdomain sources reported errors,
+the not-seen hostnames carry that caveat; against an incomplete previous scan, additions carry "may not be new". If the previous snapshot cannot be read, the new one is still written and the Note says so.
+
 ### What OpenCTI already knows
 
 Before sending the bundle, the connector asks OpenCTI (one read-only, batched GraphQL query with its own token) about the imported domain names, IPs and emails and adds a Note,
