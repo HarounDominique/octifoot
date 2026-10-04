@@ -14,11 +14,11 @@ Routing: standard (≈15 files, clear requirement; mapping decisions already fix
 - [x] Phase 4 — SpiderFoot client: `client.py` start/poll/fetch with timeout and partial results; integration tests against fake HTTP server; confirm real endpoint shapes against pinned SpiderFoot (satisfies: SPEC-spiderfoot-connector.md#test-strategy)
 - [x] Phase 5 — Connector wiring: `connector.py` + `__main__.py` on pycti `InternalEnrichmentConnector`; allowlist refusal before any client call; bundle send; `Dockerfile` (satisfies: SPEC-spiderfoot-connector.md#objective, SPEC-spiderfoot-connector.md#boundaries)
 - [x] Phase 6 — Deploy: `deploy/docker-compose.yml` + `.env.example` with OpenCTI CE, SpiderFoot and connector, versions verified against registries and pinned; `docker compose config` validates (satisfies: SPEC-spiderfoot-connector.md#commands)
-- [ ] Phase 7 — Docs + E2E: `docs/README.md` (setup, authorization policy, mapping table, limitations, manual E2E checklist); run manual E2E on an owned domain if stack available (satisfies: SPEC-spiderfoot-connector.md#test-strategy)
+- [x] Phase 7 — Docs + E2E: `docs/README.md` (setup, authorization policy, mapping table, limitations, manual E2E checklist); run manual E2E on an owned domain if stack available (satisfies: SPEC-spiderfoot-connector.md#test-strategy)
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
+**Build Status**: DONE
 **Current Phase**: —
 **Current Step**: —
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
