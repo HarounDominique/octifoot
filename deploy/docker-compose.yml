@@ -164,6 +164,7 @@ services:
       - OCTIFOOT_UI_BIND=0.0.0.0 # inside the container; the host side is 127.0.0.1 (see ports)
       - SPIDERFOOT_WATCH_MAX_PER_CYCLE=${SPIDERFOOT_WATCH_MAX_PER_CYCLE:-3}
       - SPIDERFOOT_TIMEOUT_SECONDS=${SPIDERFOOT_TIMEOUT_SECONDS:-900}
+      - SPIDERFOOT_MAX_TOTAL_SECONDS=${SPIDERFOOT_MAX_TOTAL_SECONDS:-3600}
       - SPIDERFOOT_SCORE=${SPIDERFOOT_SCORE:-30}
       # Iterative expansion is opt-in (0 = single scan). Only allowlisted subdomains are ever expanded.
       - SPIDERFOOT_MAX_DEPTH=${SPIDERFOOT_MAX_DEPTH:-0}

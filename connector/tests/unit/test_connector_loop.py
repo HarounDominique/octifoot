@@ -77,7 +77,7 @@ def test_depth_one_scans_allowlisted_subdomains_breadth_first():
     enrichment.process_message(message())
     assert calls == ["example.com", "a.example.com", "b.example.com"]
     assert {"a.example.com", "b.example.com"} <= domain_values(helper)
-    helper.send_stix2_bundle.assert_called_once()
+    assert helper.send_stix2_bundle.call_count == 3  # two early (more scans queued) + final
 
 
 def test_out_of_scope_discoveries_are_never_scanned_and_reported():

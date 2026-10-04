@@ -273,3 +273,20 @@ def test_the_bind_address_must_be_an_ip(good):
 def test_a_bind_address_that_is_not_an_ip_is_refused(bad):
     with pytest.raises(ConfigError, match="OCTIFOOT_UI_BIND"):
         load_settings(panel_env(OCTIFOOT_UI_BIND=bad))
+
+
+# --- total time of one analysis ---
+
+
+def test_the_total_time_defaults_to_one_hour():
+    assert load_settings(BASE).max_total_seconds == 3600
+
+
+def test_the_total_time_is_read():
+    assert load_settings({**BASE, "SPIDERFOOT_MAX_TOTAL_SECONDS": "7200"}).max_total_seconds == 7200
+
+
+@pytest.mark.parametrize("bad", ["59", "86401", "soon", "-1"])
+def test_the_total_time_is_bounded(bad):
+    with pytest.raises(ConfigError, match="SPIDERFOOT_MAX_TOTAL_SECONDS"):
+        load_settings({**BASE, "SPIDERFOOT_MAX_TOTAL_SECONDS": bad})

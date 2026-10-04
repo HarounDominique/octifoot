@@ -198,3 +198,42 @@ def test_the_token_is_never_written_to_state_or_audit(store):
     store.add_domain("a.example.com", by="127.0.0.1")
     for path in store.directory.iterdir():
         assert TOKEN not in path.read_text()
+
+
+# --- maximum total time ---
+
+
+@pytest.mark.parametrize("seconds", [60, 3600, 14400])
+def test_valid_total_times_are_stored(store, seconds):
+    store.set_total_timeout(seconds, by="127.0.0.1")
+    assert RuntimeStore(store.directory).total_timeout_override() == seconds
+
+
+@pytest.mark.parametrize("bad", [59, 14401, 0, "abc", "", 12.5, True])
+def test_out_of_range_total_times_are_refused(store, bad):
+    with pytest.raises(ValueError, match="between 60 and 14400"):
+        store.set_total_timeout(bad, by="127.0.0.1")
+    assert store.total_timeout_override() is None
+
+
+def test_the_total_time_override_is_independent_of_the_per_scan_one(store):
+    store.set_timeout(1800, by="127.0.0.1")
+    store.set_total_timeout(7200, by="127.0.0.1")
+    store.set_timeout(None, by="127.0.0.1")
+    assert store.timeout_override() is None and store.total_timeout_override() == 7200
+
+
+def test_effective_total_prefers_the_override(store):
+    assert store.effective_total_timeout(3600) == 3600
+    store.set_total_timeout(7200, by="127.0.0.1")
+    assert store.effective_total_timeout(3600) == 7200
+    store.set_total_timeout(None, by="127.0.0.1")
+    assert store.effective_total_timeout(3600) == 3600
+
+
+def test_a_total_time_change_is_audited(store):
+    store.set_total_timeout(7200, by="127.0.0.1")
+    assert (
+        "2026-10-04T12:00:00Z total seconds=7200 by=127.0.0.1"
+        in (store.directory / "audit.log").read_text()
+    )

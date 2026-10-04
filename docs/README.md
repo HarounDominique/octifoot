@@ -43,6 +43,7 @@ In OpenCTI open a `Domain-Name` observable, then enrichment → **SpiderFoot**.
 | `SPIDERFOOT_USECASE` | `passive` | `passive`, `footprint`, `investigate`, `all` |
 | `SPIDERFOOT_ALLOW_ACTIVE` | `false` | Required for any use case other than `passive` |
 | `SPIDERFOOT_TIMEOUT_SECONDS` | `900` | On timeout the scan is stopped and partial results are imported. Can be overridden from the control panel (60-7200) |
+| `SPIDERFOOT_MAX_TOTAL_SECONDS` | `3600` | Bound for one whole analysis (all its scans, 60-86400). Each scan gets `min(per-scan limit, time left)`; no scan starts with less than 60 s left. Can be overridden from the control panel (60-14400) |
 | `SPIDERFOOT_POLL_SECONDS` | `10` | Status polling interval |
 | `SPIDERFOOT_SCORE` | `30` | `x_opencti_score` for imported observables |
 | `SPIDERFOOT_MAX_DEPTH` | `0` | Iterative expansion depth, 0-3. `0` = off |
@@ -66,8 +67,12 @@ Safety properties:
 - Only `INTERNET_NAME` expands. IPs, emails, affiliates and co-hosts never do (affiliate hostnames are not imported at all).
 
 An "expansion" Note on the target lists scans run, depth reached, failed sub-scans, and what
-was skipped and why. Scans run one after another, so total time can approach
-`SPIDERFOOT_MAX_SCANS × SPIDERFOOT_TIMEOUT_SECONDS`.
+was skipped and why. Scans run one after another, and the whole analysis is bounded by
+`SPIDERFOOT_MAX_TOTAL_SECONDS`: targets skipped for lack of time are named in the Note
+(`Skipped, total time limit reached`) and counted as `deadline_skipped` in the work message,
+and the snapshot is marked incomplete. While more scans are queued, each finished scan is sent
+to OpenCTI right away, so a stopped or failed run keeps what was already imported; the final
+bundle still carries everything (ids are deterministic, so repeats are harmless).
 
 ## What is imported
 
@@ -108,6 +113,7 @@ docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d connect
 - **Authorized domains.** The `.env` list is shown read-only; below it you add domains (with their subdomains) or remove the ones you added. Adding requires ticking that you own the domain or have written permission to investigate it. Names are validated:
   a bare top-level name (`com`), a public suffix (`co.uk`, `github.io`), an IP address, a wildcard, a URL or a port is refused. The same validation applies to the `.env` list, which the connector now refuses to start with if an entry is unsafe.
   A domain you add is analysable at once and removable at any time; removing it does not delete what was already imported.
+- **Maximum total time.** Same idea for the whole analysis (60 to 14400 s, empty goes back to `SPIDERFOOT_MAX_TOTAL_SECONDS`).
 - **Maximum time.** A whole number of seconds between 60 and 7200 applies to the next analysis (not ones already running); empty goes back to `SPIDERFOOT_TIMEOUT_SECONDS`. The Note's "stopped after N s" shows the value that was used.
 - **Why it is safe to have.** This page decides what may be scanned, so it is local only (published on `127.0.0.1`), protected by the token, and refuses any request whose `Host` is not localhost; every change needs a session, a CSRF token and,
   for a domain, the ownership confirmation; failed logins are throttled; responses carry restrictive headers; every change is written to an audit log (`audit.log` in the `octifoot-state` volume: time, action, value, client address, never the token).

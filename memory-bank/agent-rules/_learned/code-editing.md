@@ -22,3 +22,13 @@ Run the formatter before writing a scripted patch and build its search strings f
 _derived_from: reflection/control-panel.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When an object keeps a status flag set by its last read (such as a `problem` message), refresh the data before reading the flag; reading it first reports the previous read's state.
+
+### inject-the-clock-for-deadlines
+_derived_from: reflection/total-deadline.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+Take the clock as a constructor argument (default `time.monotonic`) for any time budget, and let the fake scan advance it; deadline logic is then tested without waiting.
+
+### when-a-new-test-and-the-spec-disagree-check-the-spec-first
+_derived_from: reflection/total-deadline.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+A test written before the code can encode a miscount; re-read the spec sentence it claims to check before changing the code to satisfy it, and run the linter on new tests (it caught `or True`).

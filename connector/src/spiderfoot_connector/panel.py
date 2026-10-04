@@ -17,7 +17,13 @@ import urllib.parse
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from spiderfoot_connector.runtime import MAX_TIMEOUT, MIN_TIMEOUT, RuntimeStore
+from spiderfoot_connector.runtime import (
+    MAX_TIMEOUT,
+    MAX_TOTAL,
+    MIN_TIMEOUT,
+    MIN_TOTAL,
+    RuntimeStore,
+)
 
 SESSION_TTL = 8 * 3600
 MAX_BODY = 4096
@@ -56,6 +62,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "added": "Domain added.",
         "removed": "Domain removed.",
         "saved": "Maximum time saved.",
+        "total": "Maximum total time of one analysis",
+        "total_help": "All the scans of one analysis together (an analysis can scan the subdomains it finds). Applies to the next analysis. Leave empty to use the default.",
         "bad_csrf": "The form expired or is not valid. Reload the page and try again.",
         "forbidden": "Forbidden",
     },
@@ -86,6 +94,8 @@ STRINGS: dict[str, dict[str, str]] = {
         "added": "Dominio añadido.",
         "removed": "Dominio quitado.",
         "saved": "Tiempo máximo guardado.",
+        "total": "Tiempo total máximo de un análisis",
+        "total_help": "Todos los escaneos de un análisis juntos (un análisis puede escanear los subdominios que encuentra). Se aplica al siguiente análisis. Déjalo vacío para usar el valor por defecto.",
         "bad_csrf": "El formulario caducó o no es válido. Recarga la página e inténtalo de nuevo.",
         "forbidden": "Prohibido",
     },
@@ -109,6 +119,7 @@ ROUTES: Mapping[str, frozenset[str]] = {
     "/domains/add": frozenset({"POST"}),
     "/domains/remove": frozenset({"POST"}),
     "/timeout": frozenset({"POST"}),
+    "/total": frozenset({"POST"}),
 }
 
 
@@ -120,6 +131,7 @@ class PanelServer:
         *,
         base_domains: frozenset[str],
         base_timeout: int,
+        base_total: int = 3600,
         host: str = "127.0.0.1",
         port: int = 8099,
         lang: str = "en",
@@ -130,6 +142,7 @@ class PanelServer:
         self._token = token.encode("utf-8")
         self._base_domains = frozenset(base_domains)
         self._base_timeout = base_timeout
+        self._base_total = base_total
         self._host, self._port = host, port
         self._t = STRINGS.get(lang, STRINGS["en"])
         self._clock = clock
@@ -333,6 +346,10 @@ class PanelServer:
             elif path == "/domains/remove":
                 self._store.remove_domain(form.get("domain", ""), by=client)
                 session["flash"] = ("ok", self._t["removed"])
+            elif path == "/total":
+                raw = form.get("seconds", "").strip()
+                self._store.set_total_timeout(raw if raw else None, by=client)
+                session["flash"] = ("ok", self._t["saved"])
             else:  # /timeout
                 raw = form.get("seconds", "").strip()
                 self._store.set_timeout(raw if raw else None, by=client)
@@ -389,6 +406,8 @@ class PanelServer:
         )
         override = self._store.timeout_override()
         current = override if override is not None else self._base_timeout
+        total_override = self._store.total_timeout_override()
+        total_now = total_override if total_override is not None else self._base_total
         audit_path = self._store.directory / "audit.log"
         try:
             lines = (
@@ -413,6 +432,11 @@ class PanelServer:
             f"<p>{e(t['timeout_default'])}: <b>{self._base_timeout}</b> {e(t['seconds'])}<br>{e(t['timeout_current'])}: <b>{current}</b> {e(t['seconds'])}</p>"
             f'<form method="post" action="/timeout">{hidden}<label>{e(t["seconds"])} ({MIN_TIMEOUT}-{MAX_TIMEOUT})'
             f'<input type="number" name="seconds" min="{MIN_TIMEOUT}" max="{MAX_TIMEOUT}" step="1" value="{override if override is not None else ""}"></label>'
+            f'<button type="submit">{e(t["save"])}</button></form></section>'
+            f'<section><h2>{e(t["total"])}</h2><p class="hint">{e(t["total_help"])}</p>'
+            f"<p>{e(t['timeout_default'])}: <b>{self._base_total}</b> {e(t['seconds'])}<br>{e(t['timeout_current'])}: <b>{total_now}</b> {e(t['seconds'])}</p>"
+            f'<form method="post" action="/total">{hidden}<label>{e(t["seconds"])} ({MIN_TOTAL}-{MAX_TOTAL})'
+            f'<input type="number" name="seconds" min="{MIN_TOTAL}" max="{MAX_TOTAL}" step="1" value="{total_override if total_override is not None else ""}"></label>'
             f'<button type="submit">{e(t["save"])}</button></form></section>'
             f"<section><h2>{e(t['audit'])}</h2><pre>{audit}</pre></section>"
         )
