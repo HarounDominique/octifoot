@@ -59,6 +59,11 @@ _derived_from: reflection/key-findings.md · evidence_count: 1 · last_validated
 Before a rule says something is missing ("no SPF"), check with an independent tool that the upstream would have reported it if present, and never assert absence of something the upstream does not look for (here DMARC).
 
 ### compare-imported-values-with-ground-truth-in-live-checks
-_derived_from: reflection/fix-infra-attribution.md · evidence_count: 1 · last_validated: 2026-10-04_
+_derived_from: reflection/fix-infra-attribution.md, reflection/dns-checks.md · evidence_count: 2 · last_validated: 2026-10-04_
 
 A live check must compare the imported values, and the inputs of any rule built on them, with an independent source for the real target (`dig`, `whois`); "the line appeared and the work completed" does not show the values belong to the target.
+
+### use-a-positive-control-and-an-independent-ground-truth-reading
+_derived_from: reflection/dns-checks.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+When validating a parser against ground truth, include a subject that actually has the feature (the real targets may all be empty) and read the ground truth without reusing the parser's own normalisation, or a shared flaw will make them agree.
