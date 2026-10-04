@@ -14,6 +14,10 @@ registration expiry, reputation listings on shared infrastructure, and subdomain
 
 Curated subdomain-source list instead of "any module that emits hostnames" (false alarms from `sfp_flickr`).
 
+## Correction (2026-10-04)
+
+The mail-without-SPF finding was reported for bugoverflow.com although it has no MX: the mail host belonged to a provider's domain. Fixed by [archive/fix-infra-attribution.md](fix-infra-attribution.md).
+
 ## Not done / next
 
 - Flagged, certificate-expiry and registration-expiry findings were not triggered by any real domain (synthetic tests only).

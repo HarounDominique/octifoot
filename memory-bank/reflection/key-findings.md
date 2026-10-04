@@ -24,6 +24,12 @@ Deviations: coverage uses a curated source list validated by a test (see task fi
 - Checking the inference with `dig` before writing the rule paid off twice: it confirmed "no SPF" was true (SpiderFoot's silence was not a lookup failure) and it exposed what cannot be claimed (DMARC, because SpiderFoot never queries `_dmarc`). That second point is a real product gap, taken as the next iteration.
 - The ordering and the neutral empty wording were decided in the spec, so there was no rework on them.
 
+## Correction
+
+The "two receive mail without SPF" statement above was wrong for bugoverflow.com: it has no MX. The mail host came from a provider's domain and was attributed to the target by the infrastructure mapping
+(`reputation-and-infra-notes`), which did not filter by source. The ground-truth check I did covered SPF (the claim I was making) but not the MX that triggered the rule, and the live check verified the line, not the attribution of its inputs.
+Fixed in `fix-infra-attribution`.
+
 ## Rules extracted
 
 - New `validate-absence-claims-against-ground-truth` (external-integrations).
