@@ -63,3 +63,21 @@ def test_save_options_is_never_retried_after_a_connection_error(client):
     with pytest.raises(SpiderFootError):
         client.save_options({"sfp_x:api_key": "v"}, "1")
     assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_version_reads_the_ping_answer(client):
+    responses.add(responses.GET, f"{BASE}/ping", json=["SUCCESS", "4.0.0"])
+    assert client.version() == "4.0.0"
+
+
+@responses.activate
+def test_version_is_empty_when_the_answer_is_unexpected(client):
+    responses.add(responses.GET, f"{BASE}/ping", json=["ERROR", "nope"])
+    assert client.version() == ""
+
+
+@responses.activate
+def test_version_is_empty_when_spiderfoot_is_unreachable(client):
+    responses.add(responses.GET, f"{BASE}/ping", status=500)
+    assert client.version() == ""

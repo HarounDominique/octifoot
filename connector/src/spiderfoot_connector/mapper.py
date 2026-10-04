@@ -200,6 +200,7 @@ def map_events(
     timeout_seconds: int = 0,
     timed_out: bool = False,
     ui_url: str = "",
+    extra_lines: Sequence[str] = (),
 ) -> MapResult:
     """Convert SpiderFoot ``scanexportjsonmulti`` rows into STIX objects."""
     result = MapResult()
@@ -472,6 +473,7 @@ def map_events(
         dns_facts,
         _completeness(scan_status, timeout_seconds, timed_out),
         scan_url,
+        extra_lines,
     )
     note = stix2.Note(
         id=Note.generate_id(now.isoformat(), summary),
@@ -828,6 +830,7 @@ def _summary(
     dns_facts: DnsFacts | None = None,
     incomplete: str = "",
     scan_url: str = "",
+    extra_lines: Sequence[str] = (),
 ) -> str:
     kinds = Counter(o.type for o in objects.values() if o.type.endswith(("-name", "-addr")))
     lines = [
@@ -875,6 +878,7 @@ def _summary(
     health = _health_line(source_errors)
     if health:
         lines.append(health)
+    lines.extend(extra_lines)
     lines.append(
         f"False positives skipped: {result.false_positives}; invalid values: {result.invalid}"
     )

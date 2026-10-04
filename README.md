@@ -34,6 +34,8 @@ third-party services with it, so the target and your IP are visible to those ser
 
 You are responsible for complying with the law and with the terms of every service SpiderFoot queries.
 
+**Personal data.** "Public" does not mean free of legal duties (in the EU: GDPR purpose, minimisation, retention and rights of the people concerned). The only personal data octifoot imports are email addresses SpiderFoot finds for your domain (`email-addr`, related to the domain). WHOIS registrant, contact, phone and email lines are never copied. Keep only what your purpose needs: delete the email observables in OpenCTI when they are no longer needed, and remember that SpiderFoot keeps its own copy of every scan (delete scans in its UI to remove it). See [Data handling](docs/README.md#data-handling).
+
 ## Quick start
 
 ```bash

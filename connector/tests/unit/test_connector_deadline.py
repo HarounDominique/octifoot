@@ -219,3 +219,29 @@ def test_the_expansion_note_has_no_deadline_line_when_nothing_was_skipped_for_ti
     enrichment, _, events, _ = build(GRAPH)
     enrichment.process_message(message())
     assert "total time limit" not in " ".join(note_texts(sends(events)[-1]))
+
+
+# --- provenance and coverage lines in each scan's Note ---
+
+
+def test_every_scan_note_carries_provenance_and_coverage_with_the_applied_time():
+    enrichment, _, events, _ = build(GRAPH, total="300", durations={"example.com": 120})
+    helper_client = enrichment._client
+    helper_client.version.return_value = "4.0.0"
+    enrichment.process_message(message())
+    texts = note_texts(sends(events)[-1])
+    scans = [t for t in texts if t.startswith("SpiderFoot scan ID-")]
+    assert len(scans) == 3
+    for text in scans:
+        assert "Provenance: octifoot " in text and "SpiderFoot 4.0.0" in text
+        assert "Coverage: " in text
+    root = next(t for t in scans if t.startswith("SpiderFoot scan ID-example.com"))
+    sub = next(t for t in scans if t.startswith("SpiderFoot scan ID-www.example.com"))
+    assert "time applied 300 s" in root and "time applied 180 s" in sub
+
+
+def test_an_unreadable_spiderfoot_version_does_not_fail_the_enrichment():
+    enrichment, _, events, _ = build({"example.com": []})
+    enrichment._client.version.side_effect = RuntimeError("down")
+    enrichment.process_message(message())
+    assert "SpiderFoot unknown" in " ".join(note_texts(sends(events)[-1]))

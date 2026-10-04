@@ -42,3 +42,8 @@ An automatic trigger must go through the same request and the same authorization
 _derived_from: reflection/control-panel.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When an interface can change what a tool is allowed to touch, validate every name it accepts (a bare top-level name or a public suffix would authorise strangers), keep it local with a secret, a session, CSRF and Host checks, require an explicit ownership confirmation, and write every change to an audit log.
+
+### filter-an-external-report-against-the-existing-product
+_derived_from: reflection/provenance-coverage.md · evidence_count: 1 · last_validated: 2026-10-05_
+
+Before acting on a strategy report, list what the product already covers, what is out of its authorised scope (person-level tools, other disciplines) and what is left; build only the remainder, and treat its unverified figures as orientation.

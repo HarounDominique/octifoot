@@ -87,3 +87,8 @@ When comparing two runs of a pipeline whose sources fail silently, an "addition"
 _derived_from: reflection/api-keys.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When an upstream API answers SUCCESS to a settings write under a wrong or unknown name, check the name against what it reports, write under the form it actually stores, and read the value back before relying on it; test this against the real service, not a fake you wrote from your own assumption.
+
+### verify-a-documented-claim-against-the-real-system
+_derived_from: reflection/provenance-coverage.md · evidence_count: 1 · last_validated: 2026-10-05_
+
+When the docs tell users how to check something (a digest, a count), reproduce that check once against the real system before closing; here the Note's digest was recomputed from SpiderFoot's export.
