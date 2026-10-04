@@ -39,6 +39,7 @@ class MapResult:
     false_positives: int = 0
     invalid: int = 0
     flags_skipped: int = 0
+    discovered_domains: list[str] = field(default_factory=list)  # INTERNET_NAME, in order
     listed: list[tuple[str, str, str]] = field(default_factory=list)  # (event, feed, value)
 
 
@@ -167,6 +168,8 @@ def map_events(
             if name == target or (etype, name) in emitted:
                 continue
             emitted.add((etype, name))
+            if etype == "INTERNET_NAME":
+                result.discovered_domains.append(name)
             obs_score = score // AFFILIATE_SCORE_DIVISOR if etype.startswith("AFFILIATE") else score
             domains[name] = observable(stix2.DomainName, name, module, obs_score)
             relate("related-to", domains[name], target_obj, module)
