@@ -24,7 +24,8 @@ Success:
 - A/B on the same domains: the set of imported STIX ids is identical, except documented losses,
   and lean takes at least 30% less time. Only then does `lean` become the default.
   *(Amended: the user made `lean` the default on 2026-10-04 although the rule was met on one
-  domain only; see the task file, Deviations.)*
+  domain only; see the task file, Deviations. A later A/B with validated runs, SPEC-ab-validity-and-cloud-bucket-deny, met the
+  rule on both domains: 64.8 % and 87.2 %.)*
 - The lean list can never contain an active module (enforced by a test against SpiderFoot's own metadata).
 
 Out of scope: changing SpiderFoot module options globally, parallel scans, caching of recent
