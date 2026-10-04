@@ -14,6 +14,6 @@ _derived_from: reflection/fast-scan-profile.md · evidence_count: 1 · last_vali
 On macOS use `sed -i ''` (or an edit tool) and never chain a multi-file edit script after it with `&&`; after any scripted multi-file edit, check `git status`/`git diff` before reporting it done.
 
 ### patch-from-the-current-text-never-from-memory
-_derived_from: reflection/scan-changes.md · evidence_count: 1 · last_validated: 2026-10-04_
+_derived_from: reflection/scan-changes.md, reflection/spiderfoot-ui-link.md · evidence_count: 2 · last_validated: 2026-10-04_
 
 Run the formatter before writing a scripted patch and build its search strings from the file as it is now; a patch whose pattern stopped matching after a reformat leaves the code half-edited, so apply scripted edits one by one and check each reports success.
