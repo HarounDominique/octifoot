@@ -73,6 +73,24 @@ def test_no_change_is_stated():
     assert "no changes since the previous scan" in out and "S1" in out
 
 
+def test_nothing_added_by_an_incomplete_scan_is_not_reported_as_no_changes():
+    prev = snap(hosts=["www.example.com", "old.example.com"])
+    cur = snap(scan="S2", hosts=["www.example.com"], complete=False)
+    out = text(prev, cur)
+    assert "no changes since" not in out
+    assert (
+        "no additions since the previous scan" in out and "disappearances are not assessed" in out
+    )
+
+
+def test_summary_of_an_incomplete_comparison_does_not_say_no_changes():
+    from spiderfoot_connector.changes import summarize
+
+    prev = snap()
+    assert summarize(prev, snap(scan="S2", complete=False)) == "no additions since 2026-10-04"
+    assert summarize(prev, snap(scan="S2")) == "no changes since 2026-10-04"
+
+
 # --- additions and removals ---
 
 

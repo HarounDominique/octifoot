@@ -167,11 +167,14 @@ def _diff_lines(
 def summarize(prev: Snapshot | None, cur: Snapshot, failed_sources: bool = False) -> str:
     if prev is None:
         return "first snapshot"
-    lines = _diff_lines(prev, cur, prev.complete and cur.complete, failed_sources)
+    both_complete = prev.complete and cur.complete
+    lines = _diff_lines(prev, cur, both_complete, failed_sources)
+    if lines:
+        return f"{len(lines)} changes since {prev.at[:10]}"
     return (
-        f"{len(lines)} changes since {prev.at[:10]}"
-        if lines
-        else f"no changes since {prev.at[:10]}"
+        f"no changes since {prev.at[:10]}"
+        if both_complete
+        else f"no additions since {prev.at[:10]}"
     )
 
 
@@ -205,6 +208,11 @@ def render_changes(
     diff = _diff_lines(prev, cur, both_complete, subdomain_sources_failed)
     lines += [f"- {line}" for line in diff]
     if not diff:
-        lines.append(f"- no changes since the previous scan ({prev.at[:10]}, scan {prev.scan})")
+        when = f"({prev.at[:10]}, scan {prev.scan})"
+        lines.append(
+            f"- no changes since the previous scan {when}"
+            if both_complete
+            else f"- no additions since the previous scan {when}; disappearances are not assessed"
+        )
     lines.append(snapshot_line)
     return "\n".join(lines)
