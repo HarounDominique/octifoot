@@ -1,7 +1,7 @@
 ---
 slug: spiderfoot-connector
 spec: SPEC-spiderfoot-connector.md
-status: planned
+status: approved
 ---
 
 ## Implementation Roadmap
