@@ -15,6 +15,8 @@ from typing import Any
 import stix2
 from pycti import Identity, Note, StixCoreRelationship
 
+from spiderfoot_connector.dnschecks import DnsFacts, dmarc_policy, spf_all_qualifier
+
 SOURCE_NAME = "SpiderFoot"
 _FEED_RE = re.compile(r"^(?P<feed>[^\[\n]+?)\s*\[(?P<value>[^\]\n]+)\]")
 _DOMAIN_RE = re.compile(r"^(?=.{1,253}$)([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9_])?\.)+[a-z]{2,63}$")
@@ -185,6 +187,7 @@ def map_events(
     now: datetime,
     source_errors: Sequence[tuple[str, str]] = (),
     subdomain_sources: frozenset[str] = frozenset(),
+    dns_facts: DnsFacts | None = None,
 ) -> MapResult:
     """Convert SpiderFoot ``scanexportjsonmulti`` rows into STIX objects."""
     result = MapResult()
@@ -440,7 +443,9 @@ def map_events(
         1 for name in flagged_names if name != target and name not in domains
     )
 
-    summary = _summary(result, objects, scan_id, target, now, source_errors, subdomain_sources)
+    summary = _summary(
+        result, objects, scan_id, target, now, source_errors, subdomain_sources, dns_facts
+    )
     note = stix2.Note(
         id=Note.generate_id(now.isoformat(), summary),
         created=now,
@@ -624,11 +629,35 @@ def _plural(n: int, one: str, many: str) -> str:
     return f"{n} {one if n == 1 else many}"
 
 
+def _mail_findings(result: MapResult, target: str, dns: DnsFacts | None) -> list[str]:
+    """Mail-authentication findings. Direct DNS answers win; without them, fall back to scan events."""
+    if dns is not None and dns.mx is not None:
+        if not dns.mx:
+            return []  # confirmed: this name receives no mail
+        out = []
+        if dns.spf == "":
+            out.append(f"receives mail (MX: {', '.join(dns.mx[:2])}) but publishes no SPF record")
+        elif dns.spf and (q := spf_all_qualifier(dns.spf)) in ("+all", "?all"):
+            out.append(f"SPF ends in {q}: it does not restrict senders")
+        if dns.dmarc == "":
+            out.append(f"receives mail but publishes no DMARC record at _dmarc.{target}")
+        elif dns.dmarc and dmarc_policy(dns.dmarc) == "none":
+            out.append("DMARC policy is p=none (spoofed mail is only monitored, not rejected)")
+        return out
+    mail = sorted(result.infra.get("mail", ()))
+    if mail and result.dns_raw_seen and not result.txt_spf:
+        gap = "publishes no SPF record (DNS answered; DMARC is not checked by SpiderFoot)"
+        return [f"receives mail (MX: {', '.join(mail[:2])}) but {gap}"]
+    return []
+
+
 def _findings(
     result: MapResult,
     now: datetime,
     source_errors: Sequence[tuple[str, str]],
     subdomain_sources: frozenset[str],
+    target: str = "",
+    dns_facts: DnsFacts | None = None,
 ) -> list[str]:
     """What is notable in the data, by fixed rules; every item is tied to observed evidence."""
     today = now.date()
@@ -642,12 +671,7 @@ def _findings(
             f"{what} flagged malicious ({', '.join(feeds)}): {values}"
             + (f" and {extra} more" if extra > 0 else "")
         )
-    mail = sorted(result.infra.get("mail", ()))
-    if mail and result.dns_raw_seen and not result.txt_spf:
-        out.append(
-            f"receives mail (MX: {', '.join(mail[:2])}) but publishes no SPF record "
-            "(DNS answered; DMARC is not checked by SpiderFoot)"
-        )
+    out.extend(_mail_findings(result, target, dns_facts))
     for cn, not_after in sorted(result.cert_info, key=lambda c: c[0]):
         if not_after is None:
             continue
@@ -684,11 +708,48 @@ def _findings_block(
     now: datetime,
     source_errors: Sequence[tuple[str, str]],
     subdomain_sources: frozenset[str],
+    target: str = "",
+    dns_facts: DnsFacts | None = None,
 ) -> list[str]:
-    items = _findings(result, now, source_errors, subdomain_sources)
+    items = _findings(result, now, source_errors, subdomain_sources, target, dns_facts)
     if not items:
         return ["Key findings: nothing notable in the data the answering sources returned."]
     return ["Key findings (as of this scan):", *[f"- {item}" for item in items]]
+
+
+def _dns_line(f: DnsFacts | None) -> str:
+    if f is None:
+        return ""
+
+    def txt(value: str | None, shown) -> str:
+        return "unknown" if value is None else ("none" if value == "" else shown(value))
+
+    def count(items: list[str] | None, noun: str) -> str:
+        return (
+            "unknown"
+            if items is None
+            else ("none" if not items else _plural(len(items), noun, noun + "s"))
+        )
+
+    mx = (
+        "unknown"
+        if f.mx is None
+        else (
+            "none"
+            if not f.mx
+            else ", ".join(f.mx[:3]) + (f" and {len(f.mx) - 3} more" if len(f.mx) > 3 else "")
+        )
+    )
+    dnssec = "unknown" if f.ds is None else ("DS record present" if f.ds else "no DS record")
+    return (
+        "DNS checks (queried by octifoot, not by SpiderFoot): "
+        f"MX: {mx}; "
+        f"SPF: {txt(f.spf, lambda v: v[:MAX_SPF_CHARS])}; "
+        f"DMARC: {txt(f.dmarc, lambda v: f'p={dmarc_policy(v)}' if dmarc_policy(v) else 'present (no p= policy)')}; "
+        f"CAA: {count(f.caa, 'record')}; "
+        f"DNSSEC: {dnssec}; "
+        f"MTA-STS: {txt(f.mta_sts, lambda v: 'present')}"
+    )
 
 
 def _health_line(errors: Sequence[tuple[str, str]]) -> str:
@@ -716,11 +777,12 @@ def _summary(
     now: datetime,
     source_errors: Sequence[tuple[str, str]] = (),
     subdomain_sources: frozenset[str] = frozenset(),
+    dns_facts: DnsFacts | None = None,
 ) -> str:
     kinds = Counter(o.type for o in objects.values() if o.type.endswith(("-name", "-addr")))
     lines = [
         f"SpiderFoot scan {scan_id} for {target}.",
-        *_findings_block(result, now, source_errors, subdomain_sources),
+        *_findings_block(result, now, source_errors, subdomain_sources, target, dns_facts),
         "Mapped: " + (", ".join(f"{k}={v}" for k, v in sorted(kinds.items())) or "nothing"),
     ]
     if result.as_ips:
@@ -732,7 +794,12 @@ def _summary(
     infra = _infra_line(result.infra)
     if infra:
         lines.append(infra)
-    for extra in (_whois_line(result.whois, now), _txt_line(result), _tls_line(result)):
+    for extra in (
+        _whois_line(result.whois, now),
+        _txt_line(result),
+        _tls_line(result),
+        _dns_line(dns_facts),
+    ):
         if extra:
             lines.append(extra)
     if result.unmapped:

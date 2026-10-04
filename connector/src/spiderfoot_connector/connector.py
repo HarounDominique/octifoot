@@ -2,6 +2,7 @@
 
 import os
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -11,6 +12,7 @@ from pycti import Note, OpenCTIConnectorHelper
 from spiderfoot_connector.allowlist import is_allowed
 from spiderfoot_connector.client import SpiderFootClient, SpiderFootError
 from spiderfoot_connector.config import Settings, load_settings
+from spiderfoot_connector.dnschecks import DnsFacts, check_domain
 from spiderfoot_connector.expansion import plan_next
 from spiderfoot_connector.mapper import map_events
 from spiderfoot_connector.profiles import SUBDOMAIN_SOURCES, lean_modules
@@ -23,10 +25,17 @@ class TargetNotAllowed(ValueError):
 
 
 class SpiderFootEnrichment:
-    def __init__(self, helper: Any, settings: Settings, client: SpiderFootClient) -> None:
+    def __init__(
+        self,
+        helper: Any,
+        settings: Settings,
+        client: SpiderFootClient,
+        dns_check: Callable[[str], DnsFacts] | None = None,
+    ) -> None:
         self._helper = helper
         self._settings = settings
         self._client = client
+        self._dns_check = dns_check
 
     def process_message(self, data: dict) -> str:
         entity = data["enrichment_entity"]
@@ -85,6 +94,12 @@ class SpiderFootEnrichment:
             timed_out = timed_out or outcome.timed_out
             scans_ok += 1
             depth_reached = max(depth_reached, depth)
+            dns_facts = None
+            if depth == 0 and self._dns_check is not None:  # the root target only, never expansions
+                try:
+                    dns_facts = self._dns_check(target)
+                except Exception as exc:  # noqa: BLE001  a diagnostic must never fail the enrichment
+                    log.warning("DNS checks failed", {"target": target, "error": str(exc)})
             try:
                 source_errors = self._client.fetch_errors(outcome.scan_id)
             except SpiderFootError as exc:  # a diagnostic must never fail the enrichment
@@ -98,6 +113,7 @@ class SpiderFootEnrichment:
                 now=datetime.now(UTC),
                 source_errors=source_errors,
                 subdomain_sources=SUBDOMAIN_SOURCES,
+                dns_facts=dns_facts,
             )
             unmapped.update(mapped.unmapped)
             for obj in mapped.objects:
@@ -182,5 +198,7 @@ def _norm(domain: str) -> str:
 def main() -> None:
     settings = load_settings(os.environ)
     helper = OpenCTIConnectorHelper({})
-    enrichment = SpiderFootEnrichment(helper, settings, SpiderFootClient(settings.base_url))
+    enrichment = SpiderFootEnrichment(
+        helper, settings, SpiderFootClient(settings.base_url), dns_check=check_domain
+    )
     helper.listen(message_callback=enrichment.process_message)
