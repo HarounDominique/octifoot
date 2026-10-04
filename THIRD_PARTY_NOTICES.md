@@ -56,6 +56,19 @@ Their licenses differ a lot, so read them before deploying beyond a local test.
 | Object storage | `pgsty/silo:RELEASE.2026-09-16T00-00-00Z` | AGPL-3.0 (a MinIO fork maintained by PGSTY) |
 | RabbitMQ | `rabbitmq:4.3-management` | MPL-2.0 (some files Apache-2.0) |
 
+### Keeping the whole stack open source
+
+octifoot's own code and its Python dependencies are open source (Apache-2.0, MIT, BSD, ISC, MPL-2.0, PSF-2.0). The services that Compose pulls are separate products with their own licences, and two of them are offered under several:
+
+- **Redis 8** is offered as RSALv2, SSPLv1 **or AGPLv3**; only the AGPLv3 option is OSI-approved open source. Redis 7.2 and earlier are BSD-3-Clause.
+- **Elasticsearch** (default licence in its repository) is offered as AGPL-3.0, SSPL-1.0 **or** Elastic License 2.0; only AGPL-3.0 is OSI-approved. OpenCTI also supports **OpenSearch** (Apache-2.0) instead, selected with `ELASTICSEARCH__ENGINE_SELECTOR` (OpenCTI's documentation lists OpenSearch 2.9 or newer).
+  Switching engines needs a new data volume (an Elasticsearch data directory is not readable by OpenSearch), so it is a deliberate migration, not a drop-in change, and Compose does not do it for you.
+- The object store (a MinIO fork) is AGPL-3.0 and RabbitMQ is MPL-2.0: both open source.
+- **OpenCTI Enterprise Edition** is not open source and octifoot never enables it.
+- Valkey (BSD-3-Clause) is a Redis-compatible open-source fork; OpenCTI's documentation lists Redis (7.1 or newer) and this project did not confirm that Valkey is supported, so it is not recommended here.
+
+SpiderFoot's optional API-keyed modules talk to third-party services that are hosted by their vendors; see `docs/api-keys.md`. A key is optional and is not part of octifoot's licence.
+
 ## 4. Python runtime dependencies of the connector
 
 Resolved in the development environment on 2026-10-04. All are permissive except `certifi`
