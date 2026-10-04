@@ -1,0 +1,122 @@
+[
+ {
+  "event_type": "IP_ADDRESS",
+  "data": "203.0.113.10",
+  "source_data": "example.com",
+  "module": "sfp_dnsresolve",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "IP_ADDRESS",
+  "data": "203.0.113.77",
+  "source_data": "example.com",
+  "module": "sfp_dnsresolve",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "IP_ADDRESS",
+  "data": "198.51.100.9",
+  "source_data": "example.com",
+  "module": "sfp_dnsresolve",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "IPV6_ADDRESS",
+  "data": "2001:db8:1::10",
+  "source_data": "example.com",
+  "module": "sfp_dnsresolve",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "NETBLOCK_MEMBER",
+  "data": "203.0.113.0/24",
+  "source_data": "203.0.113.10",
+  "module": "sfp_ripe",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "NETBLOCK_MEMBER",
+  "data": "203.0.113.0/24",
+  "source_data": "203.0.113.77",
+  "module": "sfp_ripe",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "NETBLOCK_MEMBER",
+  "data": "198.51.100.0/24",
+  "source_data": "198.51.100.9",
+  "module": "sfp_ripe",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "NETBLOCKV6_MEMBER",
+  "data": "2001:db8:1::/48",
+  "source_data": "2001:db8:1::10",
+  "module": "sfp_ripe",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "BGP_AS_MEMBER",
+  "data": "64496",
+  "source_data": "203.0.113.0/24",
+  "module": "sfp_ripe",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "BGP_AS_MEMBER",
+  "data": "64497",
+  "source_data": "2001:db8:1::/48",
+  "module": "sfp_ripe",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "NETBLOCK_MEMBER",
+  "data": "192.0.2.0/24",
+  "source_data": "192.0.2.44",
+  "module": "sfp_ripe",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ },
+ {
+  "event_type": "BGP_AS_MEMBER",
+  "data": "64499",
+  "source_data": "192.0.2.0/24",
+  "module": "sfp_ripe",
+  "false_positive": 0,
+  "last_seen": "2026-10-04 05:30:00",
+  "scan_name": "enrich example.com",
+  "scan_target": "example.com"
+ }
+]

@@ -31,6 +31,11 @@ LISTED_EVENTS = {"MALICIOUS_SUBNET", "MALICIOUS_COHOST"}
 MALICIOUS_LABEL = "spiderfoot:malicious"
 MAX_NOTE_LINES = 20
 
+# Network ownership of imported IPs: IP -> netblock (NETBLOCK_*) -> AS (BGP_AS_MEMBER).
+NETBLOCK_EVENTS = {"NETBLOCK_MEMBER", "NETBLOCKV6_MEMBER"}
+AS_EVENT = "BGP_AS_MEMBER"
+MAX_ASN = 4_294_967_295
+
 
 @dataclass
 class MapResult:
@@ -40,6 +45,7 @@ class MapResult:
     invalid: int = 0
     flags_skipped: int = 0
     discovered_domains: list[str] = field(default_factory=list)  # INTERNET_NAME, in order
+    as_ips: dict[int, set[str]] = field(default_factory=dict)  # ASN -> imported IPs in it
     listed: list[tuple[str, str, str]] = field(default_factory=list)  # (event, feed, value)
 
 
@@ -47,6 +53,15 @@ def parse_feed_event(data: str) -> tuple[str, str] | None:
     """'Maltiverse [1.2.3.4]\\n...' -> ('Maltiverse', '1.2.3.4'); None if unparsable."""
     m = _FEED_RE.match(data.strip())
     return (m["feed"].strip(), m["value"].strip()) if m else None
+
+
+def parse_asn(raw: str) -> int | None:
+    """'13335' -> 13335; None unless an integer in 1..4294967295."""
+    value = raw.strip()
+    if not value.isdigit():
+        return None
+    number = int(value)
+    return number if 1 <= number <= MAX_ASN else None
 
 
 def _norm_domain(value: str) -> str:
@@ -132,8 +147,20 @@ def map_events(
         rel = _relationship(kind, source, tgt, identity.id, _ref(scan_id, module))
         objects.setdefault(rel.id, rel)
 
+    def autonomous_system(number: int, module: str):
+        obj = stix2.AutonomousSystem(
+            number=number,
+            allow_custom=True,
+            x_opencti_created_by_ref=identity.id,
+            x_opencti_external_references=_ref(scan_id, module),
+        )
+        objects.setdefault(obj.id, obj)
+        return objects[obj.id]
+
     pending_ips: list[tuple[str, str, str]] = []
     flagged: dict[str, list[tuple[str, str]]] = {}  # ip -> [(feed, module)]
+    block_of_ip: dict[str, str] = {}  # ip -> netblock CIDR
+    as_of_block: dict[str, tuple[int, str]] = {}  # netblock CIDR -> (ASN, module)
 
     for ev in events:
         etype = ev.get("event_type", "")
@@ -156,6 +183,21 @@ def map_events(
                     )
                 except ValueError:
                     result.invalid += 1
+            continue
+        if etype in NETBLOCK_EVENTS:
+            try:
+                block_of_ip[str(ipaddress.ip_address(str(ev.get("source_data", "")).strip()))] = (
+                    data
+                )
+            except ValueError:
+                result.invalid += 1
+            continue
+        if etype == AS_EVENT:
+            number = parse_asn(data)
+            if number is None:
+                result.invalid += 1
+            else:
+                as_of_block[str(ev.get("source_data", "")).strip()] = (number, module)
             continue
         if etype not in MAPPED_EVENTS:
             result.unmapped[etype] += 1
@@ -203,6 +245,13 @@ def map_events(
         ip_obj = observable(factory, str(ip), module, score, flagged.get(str(ip), []))
         relate("resolves-to", domains.get(source_host, target_obj), ip_obj, module)
 
+        # A fact about the IP's network, never an ownership claim about the target.
+        found = as_of_block.get(block_of_ip.get(str(ip), ""))
+        if found:
+            number, as_module = found
+            relate("belongs-to", ip_obj, autonomous_system(number, as_module), as_module)
+            result.as_ips.setdefault(number, set()).add(str(ip))
+
     emitted_ips = {o.value for o in objects.values() if o.type in ("ipv4-addr", "ipv6-addr")}
     result.flags_skipped = sum(1 for ip in flagged if ip not in emitted_ips)
 
@@ -228,6 +277,12 @@ def _summary(result: MapResult, objects: dict[str, Any], scan_id: str, target: s
         f"SpiderFoot scan {scan_id} for {target}.",
         "Mapped: " + (", ".join(f"{k}={v}" for k, v in sorted(kinds.items())) or "nothing"),
     ]
+    if result.as_ips:
+        systems = ", ".join(
+            f"AS{number} ({len(ips)} {'IP' if len(ips) == 1 else 'IPs'})"
+            for number, ips in sorted(result.as_ips.items())
+        )
+        lines.append(f"Autonomous systems: {systems}")
     if result.unmapped:
         lines.append(
             "Unmapped event types (not imported): "
