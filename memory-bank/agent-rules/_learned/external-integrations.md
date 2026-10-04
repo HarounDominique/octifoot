@@ -32,3 +32,8 @@ If a third-party source gives different results per run, save the real events fr
 _derived_from: reflection/reputation-and-infra-notes.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When a shortcut replay (a direct API import) shows a missing result, repeat it through the path production uses (connector helper, queue, worker) before concluding the feature is broken or fine; the shortcut and the real path can disagree.
+
+### empty-live-result-check-source-health
+_derived_from: reflection/live-expansion-check.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+When a live scan returns less than the target is known to have, read the upstream modules' error rows and probe their sources before concluding the target has nothing; third-party sources fail silently (HTTP 502 reported as "no information").

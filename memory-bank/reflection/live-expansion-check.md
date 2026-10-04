@@ -28,9 +28,20 @@ Deviations: none from the spec. The result is partial and says so: the refusal p
   through into the terminal output (a local-only broker password in a git-ignored file). No external exposure, but the
   approach was wrong.
 
+## Second attempt
+
+A domain published for security training (`zonetransfer.me`, owner's text: "Feel free to use this domain in your training") was allowlisted and
+enriched at depth 1: 42/42, no errors, but again one scan only. The passive subdomain sources were down or empty (`crt.sh` HTTP 502 for 6+ minutes
+from host and container, Sublist3r API error, CommonCrawl index unavailable, Crobat failure), and this domain's subdomains are not in certificate
+transparency anyway. So the precheck I recommended in the first reflection was applicable again and I only had the result, not the prediction:
+for this domain a recorded scan did not exist, which is why a cheap precheck (`curl crt.sh`) is also worth doing before a live run.
+The more important finding is the silent degradation: the connector reports a successful scan with zero subdomains and nothing in the Note
+says the sources failed.
+
 ## Rules extracted
 
-- New `precheck-live-preconditions-from-recorded-data` (deployment).
+- New `precheck-live-preconditions-from-recorded-data` (deployment); reinforced by the second attempt (evidence 2).
+- New `empty-live-result-check-source-health` (external-integrations).
 - New `print-env-files-with-an-allowlist` (safety-boundaries).
 
 ## Follow-ups (not blocking)
