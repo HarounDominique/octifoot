@@ -1,0 +1,190 @@
+{
+ "scans": 21,
+ "targets": 3,
+ "types": {
+  "AFFILIATE_COMPANY_NAME": {
+   "events": 41,
+   "targets": 2
+  },
+  "AFFILIATE_DESCRIPTION_ABSTRACT": {
+   "events": 17,
+   "targets": 2
+  },
+  "AFFILIATE_DESCRIPTION_CATEGORY": {
+   "events": 102,
+   "targets": 2
+  },
+  "AFFILIATE_DOMAIN_NAME": {
+   "events": 114,
+   "targets": 3
+  },
+  "AFFILIATE_DOMAIN_WHOIS": {
+   "events": 30,
+   "targets": 3
+  },
+  "AFFILIATE_EMAILADDR": {
+   "events": 600,
+   "targets": 3
+  },
+  "AFFILIATE_INTERNET_NAME": {
+   "events": 317,
+   "targets": 3
+  },
+  "AFFILIATE_IPADDR": {
+   "events": 128,
+   "targets": 3
+  },
+  "AFFILIATE_IPV6_ADDRESS": {
+   "events": 87,
+   "targets": 2
+  },
+  "BGP_AS_MEMBER": {
+   "events": 54,
+   "targets": 3
+  },
+  "BLACKLISTED_AFFILIATE_INTERNET_NAME": {
+   "events": 10,
+   "targets": 2
+  },
+  "BLACKLISTED_COHOST": {
+   "events": 51,
+   "targets": 2
+  },
+  "BLACKLISTED_INTERNET_NAME": {
+   "events": 2,
+   "targets": 1
+  },
+  "BLACKLISTED_SUBNET": {
+   "events": 34,
+   "targets": 2
+  },
+  "COMPANY_NAME": {
+   "events": 9,
+   "targets": 1
+  },
+  "COUNTRY_NAME": {
+   "events": 587,
+   "targets": 2
+  },
+  "CO_HOSTED_SITE": {
+   "events": 1430,
+   "targets": 2
+  },
+  "CO_HOSTED_SITE_DOMAIN": {
+   "events": 866,
+   "targets": 2
+  },
+  "CO_HOSTED_SITE_DOMAIN_WHOIS": {
+   "events": 500,
+   "targets": 2
+  },
+  "DNS_TEXT": {
+   "events": 21,
+   "targets": 3
+  },
+  "DOMAIN_NAME": {
+   "events": 44,
+   "targets": 3
+  },
+  "DOMAIN_NAME_PARENT": {
+   "events": 7,
+   "targets": 1
+  },
+  "DOMAIN_REGISTRAR": {
+   "events": 28,
+   "targets": 3
+  },
+  "DOMAIN_WHOIS": {
+   "events": 28,
+   "targets": 3
+  },
+  "INTERNET_NAME": {
+   "events": 32,
+   "targets": 3
+  },
+  "IPV6_ADDRESS": {
+   "events": 22,
+   "targets": 1
+  },
+  "IP_ADDRESS": {
+   "events": 32,
+   "targets": 3
+  },
+  "LEI": {
+   "events": 3,
+   "targets": 1
+  },
+  "MALICIOUS_AFFILIATE_INTERNET_NAME": {
+   "events": 4,
+   "targets": 2
+  },
+  "MALICIOUS_COHOST": {
+   "events": 43,
+   "targets": 2
+  },
+  "MALICIOUS_INTERNET_NAME": {
+   "events": 2,
+   "targets": 1
+  },
+  "MALICIOUS_IPADDR": {
+   "events": 6,
+   "targets": 1
+  },
+  "MALICIOUS_SUBNET": {
+   "events": 34,
+   "targets": 2
+  },
+  "NETBLOCKV6_MEMBER": {
+   "events": 22,
+   "targets": 1
+  },
+  "NETBLOCK_MEMBER": {
+   "events": 32,
+   "targets": 3
+  },
+  "PHONE_NUMBER": {
+   "events": 31,
+   "targets": 3
+  },
+  "PHYSICAL_ADDRESS": {
+   "events": 6,
+   "targets": 1
+  },
+  "PROVIDER_DNS": {
+   "events": 84,
+   "targets": 3
+  },
+  "PROVIDER_HOSTING": {
+   "events": 32,
+   "targets": 3
+  },
+  "PROVIDER_MAIL": {
+   "events": 28,
+   "targets": 2
+  },
+  "PUBLIC_CODE_REPO": {
+   "events": 30,
+   "targets": 2
+  },
+  "RAW_DNS_RECORDS": {
+   "events": 59,
+   "targets": 3
+  },
+  "RAW_RIR_DATA": {
+   "events": 36,
+   "targets": 3
+  },
+  "SEARCH_ENGINE_WEB_CONTENT": {
+   "events": 17,
+   "targets": 2
+  },
+  "SSL_CERTIFICATE_RAW": {
+   "events": 1,
+   "targets": 1
+  },
+  "WEB_ANALYTICS_ID": {
+   "events": 14,
+   "targets": 2
+  }
+ }
+}

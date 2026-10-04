@@ -1,0 +1,862 @@
+{
+ "ACCOUNT_EXTERNAL_OWNED": {
+  "category": "ENTITY",
+  "description": "Account on External Site",
+  "raw": false
+ },
+ "ACCOUNT_EXTERNAL_OWNED_COMPROMISED": {
+  "category": "DESCRIPTOR",
+  "description": "Hacked Account on External Site",
+  "raw": false
+ },
+ "ACCOUNT_EXTERNAL_USER_SHARED_COMPROMISED": {
+  "category": "DESCRIPTOR",
+  "description": "Hacked User Account on External Site",
+  "raw": false
+ },
+ "AFFILIATE_COMPANY_NAME": {
+  "category": "ENTITY",
+  "description": "Affiliate - Company Name",
+  "raw": false
+ },
+ "AFFILIATE_DESCRIPTION_ABSTRACT": {
+  "category": "DESCRIPTOR",
+  "description": "Affiliate Description - Abstract",
+  "raw": false
+ },
+ "AFFILIATE_DESCRIPTION_CATEGORY": {
+  "category": "DESCRIPTOR",
+  "description": "Affiliate Description - Category",
+  "raw": false
+ },
+ "AFFILIATE_DOMAIN_NAME": {
+  "category": "ENTITY",
+  "description": "Affiliate - Domain Name",
+  "raw": false
+ },
+ "AFFILIATE_DOMAIN_UNREGISTERED": {
+  "category": "ENTITY",
+  "description": "Affiliate - Domain Name Unregistered",
+  "raw": false
+ },
+ "AFFILIATE_DOMAIN_WHOIS": {
+  "category": "DATA",
+  "description": "Affiliate - Domain Whois",
+  "raw": true
+ },
+ "AFFILIATE_EMAILADDR": {
+  "category": "ENTITY",
+  "description": "Affiliate - Email Address",
+  "raw": false
+ },
+ "AFFILIATE_INTERNET_NAME": {
+  "category": "ENTITY",
+  "description": "Affiliate - Internet Name",
+  "raw": false
+ },
+ "AFFILIATE_INTERNET_NAME_HIJACKABLE": {
+  "category": "ENTITY",
+  "description": "Affiliate - Internet Name Hijackable",
+  "raw": false
+ },
+ "AFFILIATE_INTERNET_NAME_UNRESOLVED": {
+  "category": "ENTITY",
+  "description": "Affiliate - Internet Name - Unresolved",
+  "raw": false
+ },
+ "AFFILIATE_IPADDR": {
+  "category": "ENTITY",
+  "description": "Affiliate - IP Address",
+  "raw": false
+ },
+ "AFFILIATE_IPV6_ADDRESS": {
+  "category": "ENTITY",
+  "description": "Affiliate - IPv6 Address",
+  "raw": false
+ },
+ "AFFILIATE_WEB_CONTENT": {
+  "category": "DATA",
+  "description": "Affiliate - Web Content",
+  "raw": true
+ },
+ "APPSTORE_ENTRY": {
+  "category": "ENTITY",
+  "description": "App Store Entry",
+  "raw": false
+ },
+ "BASE64_DATA": {
+  "category": "DATA",
+  "description": "Base64-encoded Data",
+  "raw": true
+ },
+ "BGP_AS_MEMBER": {
+  "category": "ENTITY",
+  "description": "BGP AS Membership",
+  "raw": false
+ },
+ "BGP_AS_OWNER": {
+  "category": "ENTITY",
+  "description": "BGP AS Ownership",
+  "raw": false
+ },
+ "BITCOIN_ADDRESS": {
+  "category": "ENTITY",
+  "description": "Bitcoin Address",
+  "raw": false
+ },
+ "BITCOIN_BALANCE": {
+  "category": "DESCRIPTOR",
+  "description": "Bitcoin Balance",
+  "raw": false
+ },
+ "BLACKLISTED_AFFILIATE_INTERNET_NAME": {
+  "category": "DESCRIPTOR",
+  "description": "Blacklisted Affiliate Internet Name",
+  "raw": false
+ },
+ "BLACKLISTED_AFFILIATE_IPADDR": {
+  "category": "DESCRIPTOR",
+  "description": "Blacklisted Affiliate IP Address",
+  "raw": false
+ },
+ "BLACKLISTED_COHOST": {
+  "category": "DESCRIPTOR",
+  "description": "Blacklisted Co-Hosted Site",
+  "raw": false
+ },
+ "BLACKLISTED_INTERNET_NAME": {
+  "category": "DESCRIPTOR",
+  "description": "Blacklisted Internet Name",
+  "raw": false
+ },
+ "BLACKLISTED_IPADDR": {
+  "category": "DESCRIPTOR",
+  "description": "Blacklisted IP Address",
+  "raw": false
+ },
+ "BLACKLISTED_NETBLOCK": {
+  "category": "DESCRIPTOR",
+  "description": "Blacklisted IP on Owned Netblock",
+  "raw": false
+ },
+ "BLACKLISTED_SUBNET": {
+  "category": "DESCRIPTOR",
+  "description": "Blacklisted IP on Same Subnet",
+  "raw": false
+ },
+ "CLOUD_STORAGE_BUCKET": {
+  "category": "ENTITY",
+  "description": "Cloud Storage Bucket",
+  "raw": false
+ },
+ "CLOUD_STORAGE_BUCKET_OPEN": {
+  "category": "DESCRIPTOR",
+  "description": "Cloud Storage Bucket Open",
+  "raw": false
+ },
+ "COMPANY_NAME": {
+  "category": "ENTITY",
+  "description": "Company Name",
+  "raw": false
+ },
+ "COUNTRY_NAME": {
+  "category": "ENTITY",
+  "description": "Country Name",
+  "raw": false
+ },
+ "CO_HOSTED_SITE": {
+  "category": "ENTITY",
+  "description": "Co-Hosted Site",
+  "raw": false
+ },
+ "CO_HOSTED_SITE_DOMAIN": {
+  "category": "ENTITY",
+  "description": "Co-Hosted Site - Domain Name",
+  "raw": false
+ },
+ "CO_HOSTED_SITE_DOMAIN_WHOIS": {
+  "category": "DATA",
+  "description": "Co-Hosted Site - Domain Whois",
+  "raw": true
+ },
+ "CREDIT_CARD_NUMBER": {
+  "category": "ENTITY",
+  "description": "Credit Card Number",
+  "raw": false
+ },
+ "DARKNET_MENTION_CONTENT": {
+  "category": "DATA",
+  "description": "Darknet Mention Web Content",
+  "raw": true
+ },
+ "DARKNET_MENTION_URL": {
+  "category": "DESCRIPTOR",
+  "description": "Darknet Mention URL",
+  "raw": false
+ },
+ "DATE_HUMAN_DOB": {
+  "category": "ENTITY",
+  "description": "Date of Birth",
+  "raw": false
+ },
+ "DEFACED_AFFILIATE_INTERNET_NAME": {
+  "category": "DESCRIPTOR",
+  "description": "Defaced Affiliate",
+  "raw": false
+ },
+ "DEFACED_AFFILIATE_IPADDR": {
+  "category": "DESCRIPTOR",
+  "description": "Defaced Affiliate IP Address",
+  "raw": false
+ },
+ "DEFACED_COHOST": {
+  "category": "DESCRIPTOR",
+  "description": "Defaced Co-Hosted Site",
+  "raw": false
+ },
+ "DEFACED_INTERNET_NAME": {
+  "category": "DESCRIPTOR",
+  "description": "Defaced",
+  "raw": false
+ },
+ "DEFACED_IPADDR": {
+  "category": "DESCRIPTOR",
+  "description": "Defaced IP Address",
+  "raw": false
+ },
+ "DESCRIPTION_ABSTRACT": {
+  "category": "DESCRIPTOR",
+  "description": "Description - Abstract",
+  "raw": false
+ },
+ "DESCRIPTION_CATEGORY": {
+  "category": "DESCRIPTOR",
+  "description": "Description - Category",
+  "raw": false
+ },
+ "DEVICE_TYPE": {
+  "category": "DESCRIPTOR",
+  "description": "Device Type",
+  "raw": false
+ },
+ "DNS_SPF": {
+  "category": "DATA",
+  "description": "DNS SPF Record",
+  "raw": false
+ },
+ "DNS_SRV": {
+  "category": "DATA",
+  "description": "DNS SRV Record",
+  "raw": false
+ },
+ "DNS_TEXT": {
+  "category": "DATA",
+  "description": "DNS TXT Record",
+  "raw": false
+ },
+ "DOMAIN_NAME": {
+  "category": "ENTITY",
+  "description": "Domain Name",
+  "raw": false
+ },
+ "DOMAIN_NAME_PARENT": {
+  "category": "ENTITY",
+  "description": "Domain Name (Parent)",
+  "raw": false
+ },
+ "DOMAIN_REGISTRAR": {
+  "category": "ENTITY",
+  "description": "Domain Registrar",
+  "raw": false
+ },
+ "DOMAIN_WHOIS": {
+  "category": "DATA",
+  "description": "Domain Whois",
+  "raw": true
+ },
+ "EMAILADDR": {
+  "category": "ENTITY",
+  "description": "Email Address",
+  "raw": false
+ },
+ "EMAILADDR_COMPROMISED": {
+  "category": "DESCRIPTOR",
+  "description": "Hacked Email Address",
+  "raw": false
+ },
+ "EMAILADDR_DELIVERABLE": {
+  "category": "DESCRIPTOR",
+  "description": "Deliverable Email Address",
+  "raw": false
+ },
+ "EMAILADDR_DISPOSABLE": {
+  "category": "DESCRIPTOR",
+  "description": "Disposable Email Address",
+  "raw": false
+ },
+ "EMAILADDR_GENERIC": {
+  "category": "ENTITY",
+  "description": "Email Address - Generic",
+  "raw": false
+ },
+ "EMAILADDR_UNDELIVERABLE": {
+  "category": "DESCRIPTOR",
+  "description": "Undeliverable Email Address",
+  "raw": false
+ },
+ "ERROR_MESSAGE": {
+  "category": "DATA",
+  "description": "Error Message",
+  "raw": false
+ },
+ "ETHEREUM_ADDRESS": {
+  "category": "ENTITY",
+  "description": "Ethereum Address",
+  "raw": false
+ },
+ "ETHEREUM_BALANCE": {
+  "category": "DESCRIPTOR",
+  "description": "Ethereum Balance",
+  "raw": false
+ },
+ "GEOINFO": {
+  "category": "DESCRIPTOR",
+  "description": "Physical Location",
+  "raw": false
+ },
+ "HASH": {
+  "category": "DATA",
+  "description": "Hash",
+  "raw": false
+ },
+ "HASH_COMPROMISED": {
+  "category": "DATA",
+  "description": "Compromised Password Hash",
+  "raw": false
+ },
+ "HTTP_CODE": {
+  "category": "DATA",
+  "description": "HTTP Status Code",
+  "raw": false
+ },
+ "HUMAN_NAME": {
+  "category": "ENTITY",
+  "description": "Human Name",
+  "raw": false
+ },
+ "IBAN_NUMBER": {
+  "category": "ENTITY",
+  "description": "IBAN Number",
+  "raw": false
+ },
+ "INTERESTING_FILE": {
+  "category": "DESCRIPTOR",
+  "description": "Interesting File",
+  "raw": false
+ },
+ "INTERESTING_FILE_HISTORIC": {
+  "category": "DESCRIPTOR",
+  "description": "Historic Interesting File",
+  "raw": false
+ },
+ "INTERNAL_IP_ADDRESS": {
+  "category": "ENTITY",
+  "description": "IP Address - Internal Network",
+  "raw": false
+ },
+ "INTERNET_NAME": {
+  "category": "ENTITY",
+  "description": "Internet Name",
+  "raw": false
+ },
+ "INTERNET_NAME_UNRESOLVED": {
+  "category": "ENTITY",
+  "description": "Internet Name - Unresolved",
+  "raw": false
+ },
+ "IPV6_ADDRESS": {
+  "category": "ENTITY",
+  "description": "IPv6 Address",
+  "raw": false
+ },
+ "IP_ADDRESS": {
+  "category": "ENTITY",
+  "description": "IP Address",
+  "raw": false
+ },
+ "JOB_TITLE": {
+  "category": "DESCRIPTOR",
+  "description": "Job Title",
+  "raw": false
+ },
+ "JUNK_FILE": {
+  "category": "DESCRIPTOR",
+  "description": "Junk File",
+  "raw": false
+ },
+ "LEAKSITE_CONTENT": {
+  "category": "DATA",
+  "description": "Leak Site Content",
+  "raw": true
+ },
+ "LEAKSITE_URL": {
+  "category": "ENTITY",
+  "description": "Leak Site URL",
+  "raw": false
+ },
+ "LEI": {
+  "category": "ENTITY",
+  "description": "Legal Entity Identifier",
+  "raw": false
+ },
+ "LINKED_URL_EXTERNAL": {
+  "category": "SUBENTITY",
+  "description": "Linked URL - External",
+  "raw": false
+ },
+ "LINKED_URL_INTERNAL": {
+  "category": "SUBENTITY",
+  "description": "Linked URL - Internal",
+  "raw": false
+ },
+ "MALICIOUS_AFFILIATE_INTERNET_NAME": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious Affiliate",
+  "raw": false
+ },
+ "MALICIOUS_AFFILIATE_IPADDR": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious Affiliate IP Address",
+  "raw": false
+ },
+ "MALICIOUS_ASN": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious AS",
+  "raw": false
+ },
+ "MALICIOUS_BITCOIN_ADDRESS": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious Bitcoin Address",
+  "raw": false
+ },
+ "MALICIOUS_COHOST": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious Co-Hosted Site",
+  "raw": false
+ },
+ "MALICIOUS_EMAILADDR": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious E-mail Address",
+  "raw": false
+ },
+ "MALICIOUS_INTERNET_NAME": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious Internet Name",
+  "raw": false
+ },
+ "MALICIOUS_IPADDR": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious IP Address",
+  "raw": false
+ },
+ "MALICIOUS_NETBLOCK": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious IP on Owned Netblock",
+  "raw": false
+ },
+ "MALICIOUS_PHONE_NUMBER": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious Phone Number",
+  "raw": false
+ },
+ "MALICIOUS_SUBNET": {
+  "category": "DESCRIPTOR",
+  "description": "Malicious IP on Same Subnet",
+  "raw": false
+ },
+ "NETBLOCKV6_MEMBER": {
+  "category": "ENTITY",
+  "description": "Netblock IPv6 Membership",
+  "raw": false
+ },
+ "NETBLOCKV6_OWNER": {
+  "category": "ENTITY",
+  "description": "Netblock IPv6 Ownership",
+  "raw": false
+ },
+ "NETBLOCK_MEMBER": {
+  "category": "ENTITY",
+  "description": "Netblock Membership",
+  "raw": false
+ },
+ "NETBLOCK_OWNER": {
+  "category": "ENTITY",
+  "description": "Netblock Ownership",
+  "raw": false
+ },
+ "NETBLOCK_WHOIS": {
+  "category": "DATA",
+  "description": "Netblock Whois",
+  "raw": true
+ },
+ "OPERATING_SYSTEM": {
+  "category": "DESCRIPTOR",
+  "description": "Operating System",
+  "raw": false
+ },
+ "PASSWORD_COMPROMISED": {
+  "category": "DATA",
+  "description": "Compromised Password",
+  "raw": false
+ },
+ "PGP_KEY": {
+  "category": "DATA",
+  "description": "PGP Public Key",
+  "raw": false
+ },
+ "PHONE_NUMBER": {
+  "category": "ENTITY",
+  "description": "Phone Number",
+  "raw": false
+ },
+ "PHONE_NUMBER_COMPROMISED": {
+  "category": "DESCRIPTOR",
+  "description": "Phone Number Compromised",
+  "raw": false
+ },
+ "PHONE_NUMBER_TYPE": {
+  "category": "DESCRIPTOR",
+  "description": "Phone Number Type",
+  "raw": false
+ },
+ "PHYSICAL_ADDRESS": {
+  "category": "ENTITY",
+  "description": "Physical Address",
+  "raw": false
+ },
+ "PHYSICAL_COORDINATES": {
+  "category": "ENTITY",
+  "description": "Physical Coordinates",
+  "raw": false
+ },
+ "PROVIDER_DNS": {
+  "category": "ENTITY",
+  "description": "Name Server (DNS NS Records)",
+  "raw": false
+ },
+ "PROVIDER_HOSTING": {
+  "category": "ENTITY",
+  "description": "Hosting Provider",
+  "raw": false
+ },
+ "PROVIDER_JAVASCRIPT": {
+  "category": "ENTITY",
+  "description": "Externally Hosted Javascript",
+  "raw": false
+ },
+ "PROVIDER_MAIL": {
+  "category": "ENTITY",
+  "description": "Email Gateway (DNS MX Records)",
+  "raw": false
+ },
+ "PROVIDER_TELCO": {
+  "category": "ENTITY",
+  "description": "Telecommunications Provider",
+  "raw": false
+ },
+ "PROXY_HOST": {
+  "category": "DESCRIPTOR",
+  "description": "Proxy Host",
+  "raw": false
+ },
+ "PUBLIC_CODE_REPO": {
+  "category": "ENTITY",
+  "description": "Public Code Repository",
+  "raw": false
+ },
+ "RAW_DNS_RECORDS": {
+  "category": "DATA",
+  "description": "Raw DNS Records",
+  "raw": true
+ },
+ "RAW_FILE_META_DATA": {
+  "category": "DATA",
+  "description": "Raw File Meta Data",
+  "raw": true
+ },
+ "RAW_RIR_DATA": {
+  "category": "DATA",
+  "description": "Raw Data from RIRs/APIs",
+  "raw": true
+ },
+ "ROOT": {
+  "category": "INTERNAL",
+  "description": "Internal SpiderFoot Root event",
+  "raw": true
+ },
+ "SEARCH_ENGINE_WEB_CONTENT": {
+  "category": "DATA",
+  "description": "Search Engine Web Content",
+  "raw": true
+ },
+ "SIMILARDOMAIN": {
+  "category": "ENTITY",
+  "description": "Similar Domain",
+  "raw": false
+ },
+ "SIMILARDOMAIN_WHOIS": {
+  "category": "DATA",
+  "description": "Similar Domain - Whois",
+  "raw": true
+ },
+ "SIMILAR_ACCOUNT_EXTERNAL": {
+  "category": "ENTITY",
+  "description": "Similar Account on External Site",
+  "raw": false
+ },
+ "SOCIAL_MEDIA": {
+  "category": "ENTITY",
+  "description": "Social Media Presence",
+  "raw": false
+ },
+ "SOFTWARE_USED": {
+  "category": "SUBENTITY",
+  "description": "Software Used",
+  "raw": false
+ },
+ "SSL_CERTIFICATE_EXPIRED": {
+  "category": "DESCRIPTOR",
+  "description": "SSL Certificate Expired",
+  "raw": false
+ },
+ "SSL_CERTIFICATE_EXPIRING": {
+  "category": "DESCRIPTOR",
+  "description": "SSL Certificate Expiring",
+  "raw": false
+ },
+ "SSL_CERTIFICATE_ISSUED": {
+  "category": "ENTITY",
+  "description": "SSL Certificate - Issued to",
+  "raw": false
+ },
+ "SSL_CERTIFICATE_ISSUER": {
+  "category": "ENTITY",
+  "description": "SSL Certificate - Issued by",
+  "raw": false
+ },
+ "SSL_CERTIFICATE_MISMATCH": {
+  "category": "DESCRIPTOR",
+  "description": "SSL Certificate Host Mismatch",
+  "raw": false
+ },
+ "SSL_CERTIFICATE_RAW": {
+  "category": "DATA",
+  "description": "SSL Certificate - Raw Data",
+  "raw": true
+ },
+ "TARGET_WEB_CONTENT": {
+  "category": "DATA",
+  "description": "Web Content",
+  "raw": true
+ },
+ "TARGET_WEB_CONTENT_TYPE": {
+  "category": "DESCRIPTOR",
+  "description": "Web Content Type",
+  "raw": false
+ },
+ "TARGET_WEB_COOKIE": {
+  "category": "DATA",
+  "description": "Cookies",
+  "raw": false
+ },
+ "TCP_PORT_OPEN": {
+  "category": "SUBENTITY",
+  "description": "Open TCP Port",
+  "raw": false
+ },
+ "TCP_PORT_OPEN_BANNER": {
+  "category": "DATA",
+  "description": "Open TCP Port Banner",
+  "raw": false
+ },
+ "TOR_EXIT_NODE": {
+  "category": "DESCRIPTOR",
+  "description": "TOR Exit Node",
+  "raw": false
+ },
+ "UDP_PORT_OPEN": {
+  "category": "SUBENTITY",
+  "description": "Open UDP Port",
+  "raw": false
+ },
+ "UDP_PORT_OPEN_INFO": {
+  "category": "DATA",
+  "description": "Open UDP Port Information",
+  "raw": false
+ },
+ "URL_ADBLOCKED_EXTERNAL": {
+  "category": "DESCRIPTOR",
+  "description": "URL (AdBlocked External)",
+  "raw": false
+ },
+ "URL_ADBLOCKED_INTERNAL": {
+  "category": "DESCRIPTOR",
+  "description": "URL (AdBlocked Internal)",
+  "raw": false
+ },
+ "URL_FLASH": {
+  "category": "DESCRIPTOR",
+  "description": "URL (Uses Flash)",
+  "raw": false
+ },
+ "URL_FLASH_HISTORIC": {
+  "category": "DESCRIPTOR",
+  "description": "Historic URL (Uses Flash)",
+  "raw": false
+ },
+ "URL_FORM": {
+  "category": "DESCRIPTOR",
+  "description": "URL (Form)",
+  "raw": false
+ },
+ "URL_FORM_HISTORIC": {
+  "category": "DESCRIPTOR",
+  "description": "Historic URL (Form)",
+  "raw": false
+ },
+ "URL_JAVASCRIPT": {
+  "category": "DESCRIPTOR",
+  "description": "URL (Uses Javascript)",
+  "raw": false
+ },
+ "URL_JAVASCRIPT_HISTORIC": {
+  "category": "DESCRIPTOR",
+  "description": "Historic URL (Uses Javascript)",
+  "raw": false
+ },
+ "URL_JAVA_APPLET": {
+  "category": "DESCRIPTOR",
+  "description": "URL (Uses Java Applet)",
+  "raw": false
+ },
+ "URL_JAVA_APPLET_HISTORIC": {
+  "category": "DESCRIPTOR",
+  "description": "Historic URL (Uses Java Applet)",
+  "raw": false
+ },
+ "URL_PASSWORD": {
+  "category": "DESCRIPTOR",
+  "description": "URL (Accepts Passwords)",
+  "raw": false
+ },
+ "URL_PASSWORD_HISTORIC": {
+  "category": "DESCRIPTOR",
+  "description": "Historic URL (Accepts Passwords)",
+  "raw": false
+ },
+ "URL_STATIC": {
+  "category": "DESCRIPTOR",
+  "description": "URL (Purely Static)",
+  "raw": false
+ },
+ "URL_STATIC_HISTORIC": {
+  "category": "DESCRIPTOR",
+  "description": "Historic URL (Purely Static)",
+  "raw": false
+ },
+ "URL_UPLOAD": {
+  "category": "DESCRIPTOR",
+  "description": "URL (Accepts Uploads)",
+  "raw": false
+ },
+ "URL_UPLOAD_HISTORIC": {
+  "category": "DESCRIPTOR",
+  "description": "Historic URL (Accepts Uploads)",
+  "raw": false
+ },
+ "URL_WEB_FRAMEWORK": {
+  "category": "DESCRIPTOR",
+  "description": "URL (Uses a Web Framework)",
+  "raw": false
+ },
+ "URL_WEB_FRAMEWORK_HISTORIC": {
+  "category": "DESCRIPTOR",
+  "description": "Historic URL (Uses a Web Framework)",
+  "raw": false
+ },
+ "USERNAME": {
+  "category": "ENTITY",
+  "description": "Username",
+  "raw": false
+ },
+ "VPN_HOST": {
+  "category": "DESCRIPTOR",
+  "description": "VPN Host",
+  "raw": false
+ },
+ "VULNERABILITY_CVE_CRITICAL": {
+  "category": "DESCRIPTOR",
+  "description": "Vulnerability - CVE Critical",
+  "raw": false
+ },
+ "VULNERABILITY_CVE_HIGH": {
+  "category": "DESCRIPTOR",
+  "description": "Vulnerability - CVE High",
+  "raw": false
+ },
+ "VULNERABILITY_CVE_LOW": {
+  "category": "DESCRIPTOR",
+  "description": "Vulnerability - CVE Low",
+  "raw": false
+ },
+ "VULNERABILITY_CVE_MEDIUM": {
+  "category": "DESCRIPTOR",
+  "description": "Vulnerability - CVE Medium",
+  "raw": false
+ },
+ "VULNERABILITY_DISCLOSURE": {
+  "category": "DESCRIPTOR",
+  "description": "Vulnerability - Third Party Disclosure",
+  "raw": false
+ },
+ "VULNERABILITY_GENERAL": {
+  "category": "DESCRIPTOR",
+  "description": "Vulnerability - General",
+  "raw": false
+ },
+ "WEBSERVER_BANNER": {
+  "category": "DATA",
+  "description": "Web Server",
+  "raw": false
+ },
+ "WEBSERVER_HTTPHEADERS": {
+  "category": "DATA",
+  "description": "HTTP Headers",
+  "raw": true
+ },
+ "WEBSERVER_STRANGEHEADER": {
+  "category": "DATA",
+  "description": "Non-Standard HTTP Header",
+  "raw": false
+ },
+ "WEBSERVER_TECHNOLOGY": {
+  "category": "DESCRIPTOR",
+  "description": "Web Technology",
+  "raw": false
+ },
+ "WEB_ANALYTICS_ID": {
+  "category": "ENTITY",
+  "description": "Web Analytics",
+  "raw": false
+ },
+ "WIFI_ACCESS_POINT": {
+  "category": "ENTITY",
+  "description": "WiFi Access Point Nearby",
+  "raw": false
+ },
+ "WIKIPEDIA_PAGE_EDIT": {
+  "category": "DESCRIPTOR",
+  "description": "Wikipedia Page Edit",
+  "raw": false
+ }
+}

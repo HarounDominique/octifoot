@@ -71,6 +71,8 @@ was skipped and why. Scans run one after another, so total time can approach
 
 ## What is imported
 
+The full decision for every one of SpiderFoot's 172 event types, with the evidence, is in [event-catalogue.md](event-catalogue.md).
+
 | SpiderFoot event | STIX object | Relationship |
 |---|---|---|
 | `INTERNET_NAME` | `domain-name` | `related-to` → scanned domain |

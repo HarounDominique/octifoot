@@ -14,7 +14,7 @@ _derived_from: reflection/spiderfoot-connector.md · evidence_count: 1 · last_v
 Build mapper test fixtures from the field names the upstream code actually emits, and count and report unmapped input types instead of dropping them silently.
 
 ### inspect-real-output-before-specifying-a-mapping
-_derived_from: reflection/risk-signal-mapping.md, reflection/asn-enrichment.md, reflection/reputation-and-infra-notes.md, reflection/source-health-note.md · evidence_count: 4 · last_validated: 2026-10-04_
+_derived_from: reflection/risk-signal-mapping.md, reflection/asn-enrichment.md, reflection/reputation-and-infra-notes.md, reflection/source-health-note.md, reflection/event-catalogue.md · evidence_count: 5 · last_validated: 2026-10-04_
 
 Before writing a spec that maps third-party data, read real output from a real run; the requested field list can look right and still describe the wrong entities.
 
@@ -42,3 +42,8 @@ When a live scan returns less than the target is known to have, read the upstrea
 _derived_from: reflection/source-health-note.md · evidence_count: 1 · last_validated: 2026-10-04_
 
 When a user-facing diagnostic is built from an upstream log, state inside it what the log cannot reveal (here: modules that report an outage as "no information"), so its absence is never read as proof of health.
+
+### measure-coverage-against-observed-output
+_derived_from: reflection/event-catalogue.md · evidence_count: 1 · last_validated: 2026-10-04_
+
+Report integration coverage against what real runs actually emitted (15 of the 46 types seen), not against what the tool could emit (15 of 172), and mark per type whether the mapper has been proven on real data or only on fixtures.

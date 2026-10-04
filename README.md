@@ -70,8 +70,8 @@ Points that matter if you reuse or redistribute this:
 
 - **SpiderFoot v4.0 is GPL-2.0.** octifoot talks to it over HTTP and imports none of its code; this
   repository does not redistribute it. If *you* publish a SpiderFoot image, you take on GPL-2.0 obligations
-  (including offering source). One data file here, `connector/src/spiderfoot_connector/data/sf_modules_v4.0.json`,
-  is a snapshot of module metadata read from SpiderFoot v4.0, and `lean_modules.json` is generated from it.
+  (including offering source). Two data files here, `connector/src/spiderfoot_connector/data/sf_modules_v4.0.json` and `sf_event_types_v4.0.json`,
+  are snapshots of module and event-type metadata read from SpiderFoot v4.0; `lean_modules.json`, `event_catalogue.json` and `docs/event-catalogue.md` are generated from them.
 - **OpenCTI Enterprise Edition** has a separate license. Do not enable it without one.
 - The Compose stack pulls images with **different licenses** (Redis 8: RSALv2/SSPLv1/AGPLv3 choice;
   Elasticsearch: AGPL-3.0/SSPL/ELv2; the object store: AGPL-3.0; RabbitMQ: MPL-2.0). Read them before
