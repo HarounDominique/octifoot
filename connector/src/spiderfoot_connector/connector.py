@@ -1,5 +1,6 @@
 """OpenCTI INTERNAL_ENRICHMENT wiring: Domain-Name -> SpiderFoot scan -> STIX bundle."""
 
+import importlib.metadata
 import os
 import sys
 import threading
@@ -29,6 +30,7 @@ from spiderfoot_connector.knowledge import Known, query_known, render_knowledge
 from spiderfoot_connector.mapper import map_events
 from spiderfoot_connector.panel import PanelServer
 from spiderfoot_connector.profiles import SUBDOMAIN_SOURCES, lean_modules_with, load_snapshot
+from spiderfoot_connector.provenance import coverage_line, provenance_line
 from spiderfoot_connector.runtime import RuntimeStore
 from spiderfoot_connector.watch import Watcher, ask_enrichment, query_watched, snapshot_time
 
@@ -39,6 +41,10 @@ class TargetNotAllowed(ValueError):
     """The requested target is not on the operator's authorization allowlist."""
 
 
+try:
+    OCTIFOOT_VERSION = importlib.metadata.version("spiderfoot-connector")
+except importlib.metadata.PackageNotFoundError:  # running from a checkout that is not installed
+    OCTIFOOT_VERSION = "unknown"
 MIN_SCAN_SECONDS = 60  # never start a scan with less time than this left
 
 
@@ -86,6 +92,7 @@ class SpiderFootEnrichment:
         # `full` keeps SpiderFoot's whole Passive group; `lean` sends an explicit module list.
         # Keyed modules join `lean` only once their key is stored and verified in SpiderFoot.
         keyed = self._apply_keys()
+        spiderfoot_version = self._spiderfoot_version()
         scan_options = {"modules": lean_modules_with(keyed)} if cfg.profile == "lean" else {}
         objects: dict[str, Any] = {}
         queue: list[tuple[str, int]] = [(root, 0)]
@@ -161,6 +168,18 @@ class SpiderFootEnrichment:
                 timeout_seconds=scan_timeout,
                 timed_out=outcome.timed_out,
                 ui_url=cfg.ui_url,
+                extra_lines=[
+                    provenance_line(
+                        octifoot_version=OCTIFOOT_VERSION,
+                        spiderfoot_version=spiderfoot_version,
+                        profile=cfg.profile,
+                        usecase=cfg.usecase,
+                        modules=scan_options.get("modules"),
+                        seconds=scan_timeout,
+                        events=outcome.events,
+                    ),
+                    coverage_line(outcome.events, source_errors, keyed),
+                ],
             )
             if depth == 0:
                 root_mapped, root_dns, root_errors = mapped, dns_facts, source_errors
@@ -246,6 +265,15 @@ class SpiderFootEnrichment:
     def _timeout(self) -> int:
         base = self._settings.timeout_seconds
         return self._runtime.effective_timeout(base) if self._runtime else base
+
+    def _spiderfoot_version(self) -> str:
+        try:
+            return str(self._client.version() or "")
+        except Exception as exc:  # noqa: BLE001  a diagnostic must never fail the enrichment
+            self._helper.connector_logger.warning(
+                "Could not read SpiderFoot version", {"error": str(exc)}
+            )
+            return ""
 
     def _total_timeout(self) -> int:
         base = self._settings.max_total_seconds

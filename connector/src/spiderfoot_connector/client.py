@@ -117,6 +117,16 @@ class SpiderFootClient:
             raise SpiderFootError(f"unexpected export response: {type(data).__name__}")
         return data
 
+    def version(self) -> str:
+        """SpiderFoot's version from /ping, or an empty string; a diagnostic, never fatal."""
+        try:
+            data = self._request("GET", "ping")
+        except SpiderFootError:
+            return ""
+        if isinstance(data, list) and len(data) == 2 and data[0] == "SUCCESS":
+            return str(data[1])
+        return ""
+
     def get_options(self) -> tuple[str, dict]:
         """(CSRF token, options) from SpiderFoot; options are named ``module.<mod>.<opt>``. Each call issues a new token."""
         data = self._request("GET", "optsraw")

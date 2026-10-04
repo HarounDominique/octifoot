@@ -277,6 +277,23 @@ events. Every other event type is also skipped. Skipped types are counted
 in the Note and logs. False positives are dropped.
 Re-running a scan does not duplicate observables (deterministic STIX ids).
 
+## Provenance and coverage
+
+Every scan Note (the root scan and each sub-scan) carries two lines:
+
+- `Provenance: octifoot <version>; SpiderFoot <version>; profile lean, use case passive; modules requested: N (list sha256 …); time applied N s; events: N (sha256 …)`.
+  The event digest is the SHA-256 of SpiderFoot's exported events (sorted, so order does not matter); the first 16 hex characters are shown. It lets you show later that an import matches what SpiderFoot returned (recompute it from the scan's JSON export). It proves the content did not change, not that the sources were authentic. `SpiderFoot unknown` means `/ping` could not be read.
+- `Coverage: N modules produced data; N modules reported errors; API-keyed modules active: …`. Key names only, never values. A source that answers "no information" cannot be told from silence, so a missing finding is not proof of absence.
+
+## Data handling
+
+- **What can reach OpenCTI:** hostnames, IPs, AS numbers, certificates (as Note lines), email addresses (`email-addr`) and Note text. Email addresses are the only personal data imported.
+- **What is never copied:** WHOIS registrant, contact, phone and email lines (only dates, EPP status and DNSSEC are read).
+- **Purpose and scope:** only domains in the allowlist can be analysed; the control panel records who changed it and when.
+- **Retention and removal:** octifoot does not delete anything by itself. Delete observables and Notes in OpenCTI, and scans in SpiderFoot (its UI), when the purpose ends. The control panel's audit log never contains the token.
+- **Raw data:** SpiderFoot keeps the raw events; OpenCTI keeps the mapped objects and the scan Note with the digest above.
+- This is operator guidance, not legal advice: the lawful basis, retention period and rights handling depend on your organisation and jurisdiction.
+
 ## Development
 
 ```bash
