@@ -376,3 +376,44 @@ def test_a_corrupt_state_file_is_reported_on_the_page_not_raised(logged_in):
     (store.directory / "settings.json").write_text("{broken")
     status, _, page = b.request("GET", "/")
     assert status == 200 and "could not be read" in page
+
+
+# --- maximum total time ---
+
+
+def test_the_page_offers_the_total_time_form_with_default_and_current(logged_in):
+    b, store, _, _ = logged_in
+    page = b.request("GET", "/")[2]
+    assert 'action="/total"' in page and "3600" in page
+    store.set_total_timeout(7200, by="test")
+    assert "7200" in b.request("GET", "/")[2]
+
+
+def test_the_total_time_can_be_changed_within_bounds(logged_in):
+    b, store, _, _ = logged_in
+    assert b.request("POST", "/total", {"seconds": "7200", "csrf": b.csrf()})[0] == 303
+    assert store.total_timeout_override() == 7200
+
+
+@pytest.mark.parametrize("bad", ["59", "14401", "abc", "-5", "12.5"])
+def test_an_out_of_range_total_time_is_refused(logged_in, bad):
+    b, store, _, _ = logged_in
+    status, _, page = b.request("POST", "/total", {"seconds": bad, "csrf": b.csrf()})
+    assert (
+        status == 400 and "between 60 and 14400" in page and store.total_timeout_override() is None
+    )
+
+
+def test_a_blank_total_time_returns_to_the_default(logged_in):
+    b, store, _, _ = logged_in
+    store.set_total_timeout(7200, by="test")
+    assert b.request("POST", "/total", {"seconds": "", "csrf": b.csrf()})[0] == 303
+    assert store.total_timeout_override() is None
+
+
+def test_the_total_time_change_needs_csrf(logged_in):
+    b, store, _, _ = logged_in
+    assert (
+        b.request("POST", "/total", {"seconds": "7200"})[0] == 403
+        and store.total_timeout_override() is None
+    )

@@ -3,6 +3,7 @@
 import os
 import sys
 import threading
+import time
 from collections import Counter
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -38,6 +39,9 @@ class TargetNotAllowed(ValueError):
     """The requested target is not on the operator's authorization allowlist."""
 
 
+MIN_SCAN_SECONDS = 60  # never start a scan with less time than this left
+
+
 class SpiderFootEnrichment:
     def __init__(
         self,
@@ -49,6 +53,7 @@ class SpiderFootEnrichment:
         snapshot_lookup: Callable[[str], Snapshot | None] | None = None,
         key_ring: KeyRing | None = None,
         runtime: RuntimeStore | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._helper = helper
         self._settings = settings
@@ -58,6 +63,7 @@ class SpiderFootEnrichment:
         self._snapshot_lookup = snapshot_lookup
         self._key_ring = key_ring
         self._runtime = runtime
+        self._clock = clock
 
     def process_message(self, data: dict) -> str:
         entity = data["enrichment_entity"]
@@ -75,6 +81,8 @@ class SpiderFootEnrichment:
         timeout = (
             self._timeout()
         )  # fixed for this analysis; a change in the panel applies to the next one
+        total = self._total_timeout()
+        started = self._clock()
         # `full` keeps SpiderFoot's whole Passive group; `lean` sends an explicit module list.
         # Keyed modules join `lean` only once their key is stored and verified in SpiderFoot.
         keyed = self._apply_keys()
@@ -88,6 +96,8 @@ class SpiderFootEnrichment:
         failed: list[str] = []
         out_of_scope: list[str] = []
         budget_skipped: list[str] = []
+        deadline_skipped: list[str] = []
+        sent: set[str] = set()
         timed_out = False
         root_outcome = None
         unmapped: Counter = Counter()
@@ -99,12 +109,17 @@ class SpiderFootEnrichment:
             if not self._authorized(target):
                 out_of_scope.append(target)
                 continue
+            remaining = total - (self._clock() - started)
+            if remaining < MIN_SCAN_SECONDS:
+                deadline_skipped.append(target)
+                continue
+            scan_timeout = int(min(timeout, remaining))
             log.info("Starting SpiderFoot scan", {"target": target, "depth": depth})
             try:
                 outcome = self._client.run_scan(
                     target,
                     cfg.usecase,
-                    timeout_seconds=timeout,
+                    timeout_seconds=scan_timeout,
                     poll_seconds=cfg.poll_seconds,
                     **scan_options,
                 )
@@ -143,7 +158,7 @@ class SpiderFootEnrichment:
                 subdomain_sources=SUBDOMAIN_SOURCES,
                 dns_facts=dns_facts,
                 scan_status=outcome.status,
-                timeout_seconds=timeout,
+                timeout_seconds=scan_timeout,
                 timed_out=outcome.timed_out,
                 ui_url=cfg.ui_url,
             )
@@ -167,6 +182,9 @@ class SpiderFootEnrichment:
                 budget_skipped += plan.budget_skipped
                 queue += [(t, depth + 1) for t in plan.targets]
 
+            if queue:  # more scans to come: keep what this one found even if the run stops
+                self._send_new(objects, sent)
+
         if unmapped:
             log.info("Unmapped SpiderFoot event types", dict(unmapped))
 
@@ -180,6 +198,8 @@ class SpiderFootEnrichment:
                 failed,
                 out_of_scope,
                 budget_skipped,
+                deadline_skipped,
+                total,
             )
             objects[note.id] = note
 
@@ -190,7 +210,10 @@ class SpiderFootEnrichment:
             root_mapped,
             root_dns,
             root_errors,
-            complete=not timed_out and not failed and root_outcome.status == "FINISHED",
+            complete=not timed_out
+            and not failed
+            and not deadline_skipped
+            and root_outcome.status == "FINISHED",
         )
         if snapshot_note is not None:
             objects[snapshot_note.id] = snapshot_note
@@ -211,7 +234,7 @@ class SpiderFootEnrichment:
             message += (
                 f". Expansion: scans={scans_ok} depth={depth_reached} "
                 f"failed={len(failed)} out_of_scope={len(out_of_scope)} "
-                f"budget_skipped={len(budget_skipped)}"
+                f"budget_skipped={len(budget_skipped)} deadline_skipped={len(deadline_skipped)}"
             )
         return message
 
@@ -223,6 +246,18 @@ class SpiderFootEnrichment:
     def _timeout(self) -> int:
         base = self._settings.timeout_seconds
         return self._runtime.effective_timeout(base) if self._runtime else base
+
+    def _total_timeout(self) -> int:
+        base = self._settings.max_total_seconds
+        return self._runtime.effective_total_timeout(base) if self._runtime else base
+
+    def _send_new(self, objects: dict[str, Any], sent: set[str]) -> None:
+        """Send the objects not yet sent (ids are deterministic, so the final bundle may repeat them)."""
+        fresh = [o for o in objects.values() if o.id not in sent]
+        if not fresh:
+            return
+        self._helper.send_stix2_bundle(stix2.Bundle(objects=fresh, allow_custom=True).serialize())
+        sent.update(o.id for o in fresh)
 
     def _authorized(self, target: str) -> bool:
         return is_allowed(target, self._allowlist())
@@ -322,7 +357,17 @@ class SpiderFootEnrichment:
         )
 
     @staticmethod
-    def _expansion_note(objects, root, scans_ok, depth, failed, out_of_scope, budget_skipped):
+    def _expansion_note(
+        objects,
+        root,
+        scans_ok,
+        depth,
+        failed,
+        out_of_scope,
+        budget_skipped,
+        deadline_skipped,
+        total,
+    ):
         identity_id = next(o.id for o in objects.values() if o.type == "identity")
         lines = [
             f"Expansion from {root}: scans run: {scans_ok}, max depth reached: {depth}.",
@@ -330,6 +375,10 @@ class SpiderFootEnrichment:
             f"Skipped, outside the allowlist (never scanned): {', '.join(out_of_scope) or 'none'}.",
             f"Skipped, over the scan budget: {', '.join(budget_skipped) or 'none'}.",
         ]
+        if deadline_skipped:
+            lines.append(
+                f"Skipped, total time limit reached ({total} s): {', '.join(deadline_skipped)}."
+            )
         content = "\n".join(lines)
         now = datetime.now(UTC)
         return stix2.Note(
@@ -399,6 +448,7 @@ def _start_panel(helper: Any, settings: Settings, runtime: RuntimeStore) -> None
         settings.ui_token,
         base_domains=settings.allowed_domains,
         base_timeout=settings.timeout_seconds,
+        base_total=settings.max_total_seconds,
         host=settings.ui_bind,
         port=settings.ui_port,
         lang=settings.ui_lang,

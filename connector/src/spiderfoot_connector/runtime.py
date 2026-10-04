@@ -18,6 +18,7 @@ from spiderfoot_connector.allowlist import validate_domain
 
 MAX_UI_DOMAINS = 100
 MIN_TIMEOUT, MAX_TIMEOUT = 60, 7200
+MIN_TOTAL, MAX_TOTAL = 60, 14400  # whole-enrichment time
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -45,7 +46,11 @@ class RuntimeStore:
         return self.directory / "settings.json"
 
     def _read(self) -> dict[str, Any]:
-        empty: dict[str, Any] = {"domains": [], "timeout_seconds": None}
+        empty: dict[str, Any] = {
+            "domains": [],
+            "timeout_seconds": None,
+            "total_timeout_seconds": None,
+        }
         path = self._settings_path
         if not path.exists():
             self.problem = None
@@ -74,7 +79,14 @@ class RuntimeStore:
             ):
                 timeout = None
             self.problem = None
-            return {"domains": clean, "timeout_seconds": timeout}
+            total = data.get("total_timeout_seconds")
+            if total is not None and not (
+                isinstance(total, int)
+                and not isinstance(total, bool)
+                and MIN_TOTAL <= total <= MAX_TOTAL
+            ):
+                total = None
+            return {"domains": clean, "timeout_seconds": timeout, "total_timeout_seconds": total}
         except (OSError, ValueError, KeyError, TypeError):
             self.problem = f"{path.name} could not be read; the .env values apply"
             return empty
@@ -92,6 +104,13 @@ class RuntimeStore:
 
     def effective_allowlist(self, base: frozenset[str]) -> frozenset[str]:
         return frozenset(base) | frozenset(d["value"] for d in self._refresh()["domains"])
+
+    def total_timeout_override(self) -> int | None:
+        return self._refresh()["total_timeout_seconds"]
+
+    def effective_total_timeout(self, base: int) -> int:
+        override = self.total_timeout_override()
+        return override if override is not None else base
 
     def effective_timeout(self, base: int) -> int:
         override = self.timeout_override()
@@ -156,3 +175,23 @@ class RuntimeStore:
             self._state["timeout_seconds"] = value
             self._write()
             self._audit("timeout", "seconds=" + ("default" if value is None else str(value)), by)
+
+    def set_total_timeout(self, seconds: object, *, by: str) -> None:
+        if seconds is None:
+            value = None
+        else:
+            text = str(seconds).strip()
+            if (
+                isinstance(seconds, (bool, float))
+                or not text.isdigit()
+                or not MIN_TOTAL <= int(text) <= MAX_TOTAL
+            ):
+                raise ValueError(
+                    f"the maximum total time must be a whole number of seconds between {MIN_TOTAL} and {MAX_TOTAL}"
+                )
+            value = int(text)
+        with self._lock:
+            self._state = self._read()
+            self._state["total_timeout_seconds"] = value
+            self._write()
+            self._audit("total", "seconds=" + ("default" if value is None else str(value)), by)

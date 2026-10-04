@@ -31,6 +31,7 @@ class Settings:
     api_keys_file: str = ""  # path to the JSON file of free API keys; "" = none
     watch_interval_minutes: int = 0  # 0 = automatic re-analysis off
     watch_max_per_cycle: int = 3
+    max_total_seconds: int = 3600  # bound for one whole enrichment (all its scans)
     state_dir: str = (
         ""  # where the control panel keeps its settings and audit log; "" = no run-time settings
     )
@@ -130,6 +131,7 @@ def load_settings(env: Mapping[str, str]) -> Settings:
         allowed_domains=allowed,
         usecase=usecase,
         timeout_seconds=_int(env, "SPIDERFOOT_TIMEOUT_SECONDS", 900, 1, 86400),
+        max_total_seconds=_int(env, "SPIDERFOOT_MAX_TOTAL_SECONDS", 3600, 60, 86400),
         poll_seconds=_int(env, "SPIDERFOOT_POLL_SECONDS", 10, 1, 600),
         score=_int(env, "SPIDERFOOT_SCORE", 30, 0, 100),
         max_depth=_int(env, "SPIDERFOOT_MAX_DEPTH", 0, 0, 3),
