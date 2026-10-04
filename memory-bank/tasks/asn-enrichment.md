@@ -8,7 +8,7 @@ status: approved
 
 Routing: standard (one file extended, design fixed in spec).
 
-- [ ] Phase 1 — ASN mapping: `parse_asn`, IP→netblock→AS chain, `autonomous-system` + `belongs-to`, Note line (satisfies: SPEC-asn-enrichment.md#objective, SPEC-asn-enrichment.md#style)
+- [x] Phase 1 — ASN mapping: `parse_asn`, IP→netblock→AS chain, `autonomous-system` + `belongs-to`, Note line (satisfies: SPEC-asn-enrichment.md#objective, SPEC-asn-enrichment.md#style)
 - [ ] Phase 2 — Docs + live round-trip: README table; replay real events into OpenCTI and read relationships back; one real connector scan (satisfies: SPEC-asn-enrichment.md#test-strategy)
 
 ## Execution State
