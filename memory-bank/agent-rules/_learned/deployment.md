@@ -34,6 +34,6 @@ _derived_from: reflection/ab-validity-and-cloud-bucket-deny.md · evidence_count
 Run a long measurement from its own `git worktree` (detached) so editing or switching branches cannot change what it reads, and rebuild other services with `compose up --no-deps` so a dependent restart does not kill a running job.
 
 ### after-cleaning-test-data-query-to-prove-it-is-gone
-_derived_from: reflection/opencti-knowledge.md · evidence_count: 1 · last_validated: 2026-10-04_
+_derived_from: reflection/opencti-knowledge.md, reflection/scan-changes.md · evidence_count: 2 · last_validated: 2026-10-04_
 
 Test data seeded into a shared system must be removed by id and then proven gone with a query; a delete call that "returned no output" may have used a wrong operation and left the data in place.

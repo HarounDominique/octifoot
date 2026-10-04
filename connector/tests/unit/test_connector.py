@@ -264,3 +264,98 @@ def test_knowledge_note_is_attached_to_the_root_target(helper):
     enrichment.process_message(message("example.com"))
     (note,) = knowledge_notes(helper)
     assert note["object_refs"] == [stix2.DomainName(value="example.com").id]
+
+
+# --- changes since the previous scan ---
+
+
+def make_with_snapshots(helper, lookup, outcome=None):
+    client = MagicMock()
+    client.run_scan.return_value = outcome or ScanOutcome("ABC123", "FINISHED", EVENTS)
+    client.fetch_errors.return_value = []
+    return SpiderFootEnrichment(helper, SETTINGS, client, snapshot_lookup=lookup), client
+
+
+def snapshot_notes(helper):
+    return [
+        o
+        for o in sent_bundle(helper)["objects"]
+        if o["type"] == "note" and o.get("abstract", "").startswith("octifoot snapshot for")
+    ]
+
+
+def test_first_enrichment_writes_a_snapshot_note_with_nothing_to_compare(helper):
+    enrichment, _ = make_with_snapshots(helper, lambda target: None)
+    enrichment.process_message(message("example.com"))
+    (note,) = snapshot_notes(helper)
+    assert note["abstract"] == "octifoot snapshot for example.com: first snapshot"
+    assert "First octifoot snapshot of example.com" in note["content"]
+    assert "Snapshot (machine-readable" in note["content"]
+
+
+def test_a_previous_snapshot_is_compared(helper):
+    from spiderfoot_connector.changes import Snapshot
+
+    previous = Snapshot(
+        scan="OLD", at="2026-10-01T00:00:00Z", complete=True, hosts=["gone.example.com"]
+    )
+    asked = []
+
+    def lookup(target):
+        asked.append(target)
+        return previous
+
+    enrichment, _ = make_with_snapshots(helper, lookup)
+    enrichment.process_message(message("example.com"))
+    assert asked == ["example.com"]
+    (note,) = snapshot_notes(helper)
+    assert note["abstract"].startswith("octifoot snapshot for example.com: ")
+    assert (
+        "Changes since the previous octifoot scan of example.com (2026-10-01, scan OLD)"
+        in note["content"]
+    )
+    assert "hostnames not seen this time: gone.example.com" in note["content"]
+
+
+def test_an_incomplete_scan_does_not_claim_disappearances(helper):
+    from spiderfoot_connector.changes import Snapshot
+
+    previous = Snapshot(
+        scan="OLD", at="2026-10-01T00:00:00Z", complete=True, hosts=["gone.example.com"]
+    )
+    enrichment, _ = make_with_snapshots(
+        helper, lambda t: previous, ScanOutcome("ABC123", "ABORTED", EVENTS, timed_out=True)
+    )
+    enrichment.process_message(message("example.com"))
+    (note,) = snapshot_notes(helper)
+    assert (
+        "not seen this time" not in note["content"]
+        and "disappearances are not reported" in note["content"]
+    )
+
+
+def test_unreadable_previous_snapshot_is_stated_and_the_new_one_is_still_written(helper):
+    def lookup(target):
+        raise RuntimeError("platform unreachable")
+
+    enrichment, _ = make_with_snapshots(helper, lookup)
+    enrichment.process_message(message("example.com"))
+    helper.send_stix2_bundle.assert_called_once()
+    (note,) = snapshot_notes(helper)
+    assert "the previous snapshot could not be read" in note["content"]
+    assert "Snapshot (machine-readable" in note["content"]
+
+
+def test_no_snapshot_lookup_configured_means_no_snapshot_note(helper):
+    enrichment, _ = make(helper)
+    enrichment.process_message(message())
+    assert snapshot_notes(helper) == []
+
+
+def test_the_snapshot_note_is_attached_to_the_root_target(helper):
+    import stix2
+
+    enrichment, _ = make_with_snapshots(helper, lambda t: None)
+    enrichment.process_message(message("example.com"))
+    (note,) = snapshot_notes(helper)
+    assert note["object_refs"] == [stix2.DomainName(value="example.com").id]

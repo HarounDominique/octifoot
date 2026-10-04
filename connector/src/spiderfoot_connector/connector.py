@@ -10,6 +10,13 @@ import stix2
 from pycti import Note, OpenCTIConnectorHelper
 
 from spiderfoot_connector.allowlist import is_allowed
+from spiderfoot_connector.changes import (
+    Snapshot,
+    latest_snapshot,
+    render_changes,
+    snapshot_from,
+    summarize,
+)
 from spiderfoot_connector.client import SpiderFootClient, SpiderFootError
 from spiderfoot_connector.config import Settings, load_settings
 from spiderfoot_connector.dnschecks import DnsFacts, check_domain
@@ -33,12 +40,14 @@ class SpiderFootEnrichment:
         client: SpiderFootClient,
         dns_check: Callable[[str], DnsFacts] | None = None,
         knowledge_lookup: Callable[[list[str]], list[Known]] | None = None,
+        snapshot_lookup: Callable[[str], Snapshot | None] | None = None,
     ) -> None:
         self._helper = helper
         self._settings = settings
         self._client = client
         self._dns_check = dns_check
         self._knowledge_lookup = knowledge_lookup
+        self._snapshot_lookup = snapshot_lookup
 
     def process_message(self, data: dict) -> str:
         entity = data["enrichment_entity"]
@@ -98,6 +107,7 @@ class SpiderFootEnrichment:
             scans_ok += 1
             depth_reached = max(depth_reached, depth)
             dns_facts = None
+            source_errors = []
             if depth == 0 and self._dns_check is not None:  # the root target only, never expansions
                 try:
                     dns_facts = self._dns_check(target)
@@ -121,6 +131,8 @@ class SpiderFootEnrichment:
                 timeout_seconds=cfg.timeout_seconds,
                 timed_out=outcome.timed_out,
             )
+            if depth == 0:
+                root_mapped, root_dns, root_errors = mapped, dns_facts, source_errors
             unmapped.update(mapped.unmapped)
             for obj in mapped.objects:
                 objects.setdefault(obj.id, obj)
@@ -155,6 +167,18 @@ class SpiderFootEnrichment:
             )
             objects[note.id] = note
 
+        snapshot_note = self._snapshot_note(
+            objects,
+            root,
+            root_outcome,
+            root_mapped,
+            root_dns,
+            root_errors,
+            complete=not timed_out and not failed and root_outcome.status == "FINISHED",
+        )
+        if snapshot_note is not None:
+            objects[snapshot_note.id] = snapshot_note
+
         knowledge_note = self._knowledge_note(objects, root)
         if knowledge_note is not None:
             objects[knowledge_note.id] = knowledge_note
@@ -177,6 +201,53 @@ class SpiderFootEnrichment:
 
     def _authorized(self, target: str) -> bool:
         return is_allowed(target, self._settings.allowed_domains)
+
+    def _snapshot_note(
+        self, objects, root, root_outcome, root_mapped, root_dns, root_errors, complete
+    ):
+        """Compare with the previous snapshot kept in OpenCTI and write the new one (never fatal)."""
+        if self._snapshot_lookup is None:
+            return None
+        log = self._helper.connector_logger
+        target = _norm(root)
+        now = datetime.now(UTC)
+        try:
+            current = snapshot_from(
+                target=target,
+                scan=root_outcome.scan_id,
+                at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                complete=complete,
+                objects=list(objects.values()),
+                infra=root_mapped.infra,
+                dns=root_dns,
+            )
+            unreadable = False
+            try:
+                previous = self._snapshot_lookup(target)
+            except Exception as exc:  # noqa: BLE001  the comparison is a diagnostic, never fatal
+                log.warning("Could not read the previous snapshot", {"error": str(exc)})
+                previous, unreadable = None, True
+            failed_sources = bool({m for m, _ in root_errors} & SUBDOMAIN_SOURCES)
+            content = render_changes(target, previous, current, failed_sources, unreadable)
+            abstract = f"octifoot snapshot for {target}: " + (
+                "previous snapshot unreadable"
+                if unreadable
+                else summarize(previous, current, failed_sources)
+            )
+            identity_id = next(o.id for o in objects.values() if o.type == "identity")
+            return stix2.Note(
+                id=Note.generate_id(now.isoformat(), content),
+                created=now,
+                modified=now,
+                content=content,
+                abstract=abstract,
+                object_refs=[stix2.DomainName(value=target).id],
+                created_by_ref=identity_id,
+                allow_custom=True,
+            )
+        except Exception as exc:  # noqa: BLE001  never fail the enrichment for a diagnostic
+            log.warning("Snapshot note failed", {"error": str(exc)})
+            return None
 
     def _knowledge_note(self, objects, root):
         """Read what OpenCTI already holds about the imported observables (read-only, never fatal)."""
@@ -246,5 +317,6 @@ def main() -> None:
         SpiderFootClient(settings.base_url),
         dns_check=check_domain,
         knowledge_lookup=lambda values: query_known(helper.api.query, values),
+        snapshot_lookup=lambda target: latest_snapshot(helper.api.query, target),
     )
     helper.listen(message_callback=enrichment.process_message)
