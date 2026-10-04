@@ -21,6 +21,10 @@ _USECASE_NAMES = {
     "all": "all",
 }
 HTTP_TIMEOUT = 30
+# SpiderFoot closes idle keep-alive connections; a polled scan lasts minutes, so one dropped GET must not
+# abort it. Only GETs are retried: a repeated POST /startscan would start a second scan.
+GET_ATTEMPTS = 3
+RETRY_DELAY = 2.0
 
 
 class SpiderFootError(RuntimeError):
@@ -53,18 +57,25 @@ class SpiderFootClient:
         self._monotonic = monotonic
 
     def _request(self, method: str, path: str, **kwargs):
-        try:
-            resp = self._session.request(
-                method,
-                f"{self._base}/{path}",
-                headers={"Accept": "application/json"},
-                timeout=HTTP_TIMEOUT,
-                **kwargs,
-            )
-            resp.raise_for_status()
-            return resp.json()
-        except (requests.RequestException, ValueError) as exc:
-            raise SpiderFootError(f"SpiderFoot request to /{path} failed: {exc}") from exc
+        attempts = GET_ATTEMPTS if method == "GET" else 1
+        for attempt in range(1, attempts + 1):
+            try:
+                resp = self._session.request(
+                    method,
+                    f"{self._base}/{path}",
+                    headers={"Accept": "application/json"},
+                    timeout=HTTP_TIMEOUT,
+                    **kwargs,
+                )
+                resp.raise_for_status()
+                return resp.json()
+            except (requests.ConnectionError, requests.Timeout) as exc:
+                if attempt == attempts:
+                    raise SpiderFootError(f"SpiderFoot request to /{path} failed: {exc}") from exc
+                self._sleep(RETRY_DELAY * attempt)
+            except (requests.RequestException, ValueError) as exc:
+                raise SpiderFootError(f"SpiderFoot request to /{path} failed: {exc}") from exc
+        raise AssertionError("unreachable")  # pragma: no cover
 
     def start_scan(self, target: str, usecase: str, modules: list[str] | None = None) -> str:
         sf_usecase = _USECASE_NAMES.get(usecase.lower())
