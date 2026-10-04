@@ -93,6 +93,18 @@ behind a CDN, every IP will point at the CDN's AS, which is how you spot shared 
 AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
 any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
+### WHOIS and DNS TXT
+
+Two more lines in the scan Note, both text only (no objects), both only from events whose source is the scanned domain or a parent of it
+(WHOIS or TXT of a provider's domain is counted under Unmapped as "not the target's"):
+
+- `WHOIS (as reported by SpiderFoot): created 2026-09-27 (7 days before this scan); updated ...; expires ...; status: clientTransferProhibited, ...; DNSSEC: unsigned`.
+  Domain age is useful CTI context; STIX has no field for it. Only dates, EPP status and DNSSEC are read: registrant, contact, phone and email lines are never copied.
+  SpiderFoot truncates the WHOIS text at 1024 characters, so later fields (name servers, DNSSEC) are sometimes missing and the line shows only what parsed.
+- `DNS TXT (as reported by SpiderFoot): SPF: v=spf1 ... ; DMARC: p=quarantine; verification tokens: google (1); other records: N`.
+  SPF is shown verbatim (capped at 160 characters), DMARC only as its policy, verification tokens only as the issuing service (values are never printed).
+  In the three domains tested only verification tokens appeared, so the SPF and DMARC parsers are proven on synthetic data.
+
 ### Source health
 
 After each scan the connector reads SpiderFoot's scan log and adds one line to the scan Note naming the modules

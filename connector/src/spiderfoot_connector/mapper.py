@@ -49,6 +49,28 @@ INFRA_EVENTS = {
 }
 MAX_INFRA_VALUES = 5
 
+# Registration facts and TXT records of the target, as Note lines (no objects).
+WHOIS_EVENT = "DOMAIN_WHOIS"
+TXT_EVENT = "DNS_TEXT"
+MAX_SPF_CHARS = 160
+_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_WHOIS_DATE_KEYS = {
+    "creation date": "created",
+    "created": "created",
+    "registered on": "created",
+    "registration time": "created",
+    "updated date": "updated",
+    "last updated": "updated",
+    "last modified": "updated",
+    "registry expiry date": "expires",
+    "registrar registration expiration date": "expires",
+    "expiry date": "expires",
+    "expiration date": "expires",
+    "paid-till": "expires",
+}
+_VERIFICATION_RE = re.compile(r"^([a-z0-9._-]+)-verification=")
+_DMARC_POLICY_RE = re.compile(r"(?:^|;)\s*p=([a-z]+)")
+
 # Source health: modules that logged ERROR rows during the scan (diagnostic text only).
 MAX_HEALTH_MODULES = 8
 MAX_HEALTH_MESSAGE = 80
@@ -62,6 +84,7 @@ IMPORTED_EVENTS = (
     | NETBLOCK_EVENTS
     | {AS_EVENT}
     | set(INFRA_EVENTS)
+    | {WHOIS_EVENT, TXT_EVENT}
 )
 
 
@@ -74,6 +97,13 @@ class MapResult:
     flags_skipped: int = 0
     name_flags_skipped: int = 0
     infra: dict[str, set[str]] = field(default_factory=dict)  # kind -> provider values
+    whois: dict[str, Any] = field(default_factory=dict)  # created/updated/expires/status/dnssec
+    txt_spf: str = ""
+    txt_dmarc: str = ""
+    txt_verification: dict[str, set[str]] = field(
+        default_factory=dict
+    )  # service -> distinct tokens
+    txt_other: set[str] = field(default_factory=set)
     discovered_domains: list[str] = field(default_factory=list)  # INTERNET_NAME, in order
     as_ips: dict[int, set[str]] = field(default_factory=dict)  # ASN -> imported IPs in it
     listed: list[tuple[str, str, str]] = field(default_factory=list)  # (event, feed, value)
@@ -229,6 +259,15 @@ def map_events(
 
         if etype == FLAG_NAME_EVENT:
             continue  # collected before the loop
+        if etype in (WHOIS_EVENT, TXT_EVENT):
+            if not _is_target_or_parent(str(ev.get("source_data", "")), target):
+                result.unmapped[f"{etype} (not the target's)"] += 1
+            elif etype == WHOIS_EVENT:
+                if not _merge_whois(result.whois, data):
+                    result.invalid += 1
+            else:
+                _add_txt(result, data)
+            continue
         if etype in INFRA_EVENTS:
             value = _infra_value(etype, data)
             if value:
@@ -330,7 +369,7 @@ def map_events(
         1 for name in flagged_names if name != target and name not in domains
     )
 
-    summary = _summary(result, objects, scan_id, target, source_errors)
+    summary = _summary(result, objects, scan_id, target, now, source_errors)
     note = stix2.Note(
         id=Note.generate_id(now.isoformat(), summary),
         created=now,
@@ -344,6 +383,88 @@ def map_events(
     objects[note.id] = note
     result.objects = list(objects.values())
     return result
+
+
+def _is_target_or_parent(source: str, target: str) -> bool:
+    """True when ``source`` is the target itself or a parent domain of it (never a sibling)."""
+    name = _norm_domain(source)
+    return bool(name) and (name == target or target.endswith("." + name))
+
+
+def _merge_whois(whois: dict[str, Any], text: str) -> bool:
+    """Take dates, EPP status and DNSSEC from WHOIS text, first value wins; False if nothing parsed.
+
+    Registrant and contact lines are never read. SpiderFoot truncates the text, so partial is normal.
+    """
+    found: dict[str, Any] = {}
+    status: list[str] = []
+    for raw in text.replace("\r", "").split("\n"):
+        key, _, value = raw.partition(":")
+        key, value = key.strip().lower(), value.strip()
+        if key in _WHOIS_DATE_KEYS and (m := _DATE_RE.search(value)):
+            found.setdefault(_WHOIS_DATE_KEYS[key], m.group(0))
+        elif key == "domain status" and value:
+            token = value.split()[0]
+            if token not in status:
+                status.append(token)
+        elif key == "dnssec" and value:
+            found.setdefault("dnssec", value.split()[0].lower())
+    if status:
+        found["status"] = status
+    for name, value in found.items():
+        whois.setdefault(name, value)
+    return bool(found)
+
+
+def _add_txt(result: MapResult, value: str) -> None:
+    text = value.strip()
+    lower = text.lower()
+    if lower.startswith("v=spf1"):
+        result.txt_spf = result.txt_spf or text[:MAX_SPF_CHARS]
+    elif lower.startswith("v=dmarc1"):
+        m = _DMARC_POLICY_RE.search(lower)
+        result.txt_dmarc = result.txt_dmarc or (m.group(1) if m else "")
+    elif m := _VERIFICATION_RE.match(lower):
+        service = m.group(1).removesuffix("-site")
+        result.txt_verification.setdefault(service, set()).add(lower)
+    elif text:
+        result.txt_other.add(text)
+
+
+def _whois_line(whois: dict[str, Any], now: datetime) -> str:
+    if not whois:
+        return ""
+    parts = []
+    if "created" in whois:
+        created = whois["created"]
+        days = (now.date() - datetime.fromisoformat(created).date()).days
+        parts.append(
+            f"created {created}" + (f" ({days} days before this scan)" if days >= 0 else "")
+        )
+    for name in ("updated", "expires"):
+        if name in whois:
+            parts.append(f"{name} {whois[name]}")
+    if whois.get("status"):
+        parts.append("status: " + ", ".join(whois["status"]))
+    if "dnssec" in whois:
+        parts.append(f"DNSSEC: {whois['dnssec']}")
+    return "WHOIS (as reported by SpiderFoot): " + "; ".join(parts) if parts else ""
+
+
+def _txt_line(result: MapResult) -> str:
+    parts = []
+    if result.txt_spf:
+        parts.append(f"SPF: {result.txt_spf}")
+    if result.txt_dmarc:
+        parts.append(f"DMARC: p={result.txt_dmarc}")
+    if result.txt_verification:
+        services = ", ".join(
+            f"{s} ({len(tokens)})" for s, tokens in sorted(result.txt_verification.items())
+        )
+        parts.append(f"verification tokens: {services}")
+    if result.txt_other:
+        parts.append(f"other records: {len(result.txt_other)}")
+    return "DNS TXT (as reported by SpiderFoot): " + "; ".join(parts) if parts else ""
 
 
 def _infra_value(etype: str, data: str) -> str:
@@ -390,6 +511,7 @@ def _summary(
     objects: dict[str, Any],
     scan_id: str,
     target: str,
+    now: datetime,
     source_errors: Sequence[tuple[str, str]] = (),
 ) -> str:
     kinds = Counter(o.type for o in objects.values() if o.type.endswith(("-name", "-addr")))
@@ -406,6 +528,9 @@ def _summary(
     infra = _infra_line(result.infra)
     if infra:
         lines.append(infra)
+    for extra in (_whois_line(result.whois, now), _txt_line(result)):
+        if extra:
+            lines.append(extra)
     if result.unmapped:
         lines.append(
             "Unmapped event types (not imported): "

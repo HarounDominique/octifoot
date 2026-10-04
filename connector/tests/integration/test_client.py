@@ -3,6 +3,7 @@ from pathlib import Path
 from urllib.parse import parse_qs
 
 import pytest
+import requests
 import responses
 
 from spiderfoot_connector.client import SpiderFootClient, SpiderFootError
@@ -196,3 +197,46 @@ def test_fetch_errors_rejects_an_unexpected_response(client):
     responses.add(responses.GET, f"{BASE}/scanlog", json={"error": "nope"})
     with pytest.raises(SpiderFootError):
         client.fetch_errors("ABC")
+
+
+# --- transient connection failures (SpiderFoot closes idle keep-alive connections) ---
+
+
+def _conn_error():
+    return requests.exceptions.ConnectionError("Remote end closed connection without response")
+
+
+@responses.activate
+def test_get_is_retried_after_a_transient_connection_error(client, clock):
+    responses.add(responses.GET, f"{BASE}/scanstatus", body=_conn_error())
+    responses.add(responses.GET, f"{BASE}/scanstatus", json=status_body("RUNNING"))
+    assert client._request("GET", "scanstatus", params={"id": "X"})[5] == "RUNNING"
+    assert len(responses.calls) == 2
+    assert clock.t > 0  # waited through the injected sleep, not the real one
+
+
+@responses.activate
+def test_get_gives_up_after_three_attempts(client):
+    for _ in range(3):
+        responses.add(responses.GET, f"{BASE}/scanstatus", body=_conn_error())
+    with pytest.raises(SpiderFootError, match="scanstatus"):
+        client._request("GET", "scanstatus")
+    assert len(responses.calls) == 3
+
+
+@responses.activate
+def test_post_is_never_retried_because_it_would_start_a_second_scan(client):
+    responses.add(responses.POST, f"{BASE}/startscan", body=_conn_error())
+    responses.add(responses.POST, f"{BASE}/startscan", json=["SUCCESS", "S1"])
+    with pytest.raises(SpiderFootError):
+        client.start_scan("example.com", "passive")
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_http_errors_are_not_retried(client):
+    responses.add(responses.GET, f"{BASE}/scanstatus", status=500)
+    responses.add(responses.GET, f"{BASE}/scanstatus", json=status_body("RUNNING"))
+    with pytest.raises(SpiderFootError):
+        client._request("GET", "scanstatus")
+    assert len(responses.calls) == 1

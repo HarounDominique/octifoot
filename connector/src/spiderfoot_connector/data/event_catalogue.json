@@ -1038,11 +1038,11 @@
   ],
   "observed_events": 21,
   "observed_targets": 3,
-  "status": "planned",
+  "status": "imported",
   "action": "note",
   "target": "note",
-  "slice": "whois-dns-notes",
-  "rationale": "TXT records of the target (SPF, DMARC, verification tokens) say who may send mail for it: one Note line."
+  "slice": "",
+  "rationale": "`DNS TXT` line of the Note: SPF, DMARC policy, verification services; token values never printed."
  },
  {
   "id": "DOMAIN_NAME",
@@ -1125,11 +1125,11 @@
   ],
   "observed_events": 28,
   "observed_targets": 3,
-  "status": "planned",
+  "status": "imported",
   "action": "note",
   "target": "note",
-  "slice": "whois-dns-notes",
-  "rationale": "Registration facts of the target (creation, expiry, update, status) are CTI context (domain age) with no STIX field: one Note line."
+  "slice": "",
+  "rationale": "`WHOIS` line of the Note: dates, domain age, EPP status, DNSSEC; no registrant or contact data."
  },
  {
   "id": "EMAILADDR",
@@ -3628,11 +3628,11 @@
   ],
   "observed_events": 14,
   "observed_targets": 2,
-  "status": "planned",
-  "action": "note",
-  "target": "note",
-  "slice": "whois-dns-notes",
-  "rationale": "Observed values were domain-verification tokens from the target's own TXT records; a pivot, summarised in the same Note line."
+  "status": "declined",
+  "action": "decline",
+  "target": "",
+  "slice": "",
+  "rationale": "Observed values repeated the domain-verification tokens already in `DNS_TEXT`, but with the TXT string as source: the domain is lost, so it cannot be attributed to the target."
  },
  {
   "id": "WIFI_ACCESS_POINT",

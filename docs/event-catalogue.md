@@ -10,9 +10,9 @@ part of what SpiderFoot can find. Most of the rest needs an API key or an active
 
 | Status | Types | Meaning |
 |---|---|---|
-| imported | 15 | the mapper turns it into an object, label or Note line today |
-| planned | 4 | seen in real scans and worth importing; a named slice will do it |
-| declined | 41 | decided against, with the reason (mostly: it describes a third party or is raw text) |
+| imported | 17 | the mapper turns it into an object, label or Note line today |
+| planned | 1 | seen in real scans and worth importing; a named slice will do it |
+| declined | 42 | decided against, with the reason (mostly: it describes a third party or is raw text) |
 | blocked | 34 | not produced by this configuration: needs an API key or an active module |
 | no-data | 78 | producible with the current profile but never seen; decide when real data exists |
 
@@ -21,7 +21,9 @@ part of what SpiderFoot can find. Most of the rest needs an API key or an active
 | Event type | Becomes | Seen | Why |
 |---|---|---|---|
 | `BGP_AS_MEMBER` | object: autonomous-system | 54 events | AS number only; `belongs-to` from each imported IP. |
+| `DNS_TEXT` | note: note | 21 events | `DNS TXT` line of the Note: SPF, DMARC policy, verification services; token values never printed. |
 | `DOMAIN_REGISTRAR` | note: note | 28 events | `Infrastructure` line of the Note. |
+| `DOMAIN_WHOIS` | note: note | 28 events | `WHOIS` line of the Note: dates, domain age, EPP status, DNSSEC; no registrant or contact data. |
 | `EMAILADDR` | object: email-addr | no | Addresses found for the target itself; `related-to` the domain. |
 | `INTERNET_NAME` | object: domain-name | 32 events | The target's own hostnames; `related-to` the scanned domain. |
 | `IPV6_ADDRESS` | object: ipv6-addr | 22 events | Same as IPv4. |
@@ -40,10 +42,7 @@ part of what SpiderFoot can find. Most of the rest needs an API key or an active
 
 | Event type | Becomes | Slice | Seen | Why |
 |---|---|---|---|---|
-| `DNS_TEXT` | note: note | whois-dns-notes | 21 events | TXT records of the target (SPF, DMARC, verification tokens) say who may send mail for it: one Note line. |
-| `DOMAIN_WHOIS` | note: note | whois-dns-notes | 28 events | Registration facts of the target (creation, expiry, update, status) are CTI context (domain age) with no STIX field: one Note line. |
 | `SSL_CERTIFICATE_RAW` | object: x509-certificate | x509-certificates | 1 events | Certificates issued for the target's names (from crt.sh) are standard STIX x509-certificate objects with the SANs as context. |
-| `WEB_ANALYTICS_ID` | note: note | whois-dns-notes | 14 events | Observed values were domain-verification tokens from the target's own TXT records; a pivot, summarised in the same Note line. |
 
 ## Declined
 
@@ -90,6 +89,7 @@ part of what SpiderFoot can find. Most of the rest needs an API key or an active
 | `RAW_RIR_DATA` | 36 events | Raw registry text; the useful part (AS and netblock) already arrives as structured events. |
 | `ROOT` | no | SpiderFoot-internal event. |
 | `SEARCH_ENGINE_WEB_CONTENT` | 17 events | Raw search-engine snippets: unstructured and about third parties. |
+| `WEB_ANALYTICS_ID` | 14 events | Observed values repeated the domain-verification tokens already in `DNS_TEXT`, but with the TXT string as source: the domain is lost, so it cannot be attributed to the target. |
 
 ## Blocked: needs an API key or an active module
 
