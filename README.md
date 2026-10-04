@@ -81,7 +81,8 @@ Points that matter if you reuse or redistribute this:
   Elasticsearch: AGPL-3.0/SSPL/ELv2; the object store: AGPL-3.0; RabbitMQ: MPL-2.0). Read them before
   deploying beyond a local test.
 
-The complete list, with Python dependencies and how each license was checked, is in
+To keep the whole deployed stack open source (Redis and Elasticsearch each also offer a non-open licence; OpenSearch is a supported open alternative) see "Keeping the whole stack open source" in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). The complete list, with Python dependencies and how each license was checked, is in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). This is a good-faith summary, not legal advice.
 
 ## How to cite
