@@ -13,9 +13,9 @@ Routing: standard (one file extended, design fixed in spec).
 
 ## Execution State
 
-**Build Status**: NOT_STARTED
-**Current Phase**: —
-**Current Step**: —
+**Build Status**: RUNNING
+**Current Phase**: 2
+**Current Step**: 2/6
 **Step Attempts**: {2: 0, 3: 0, 4: 0}
 **Last Block Rule**: none
 **Can Resume**: YES
@@ -24,3 +24,4 @@ Routing: standard (one file extended, design fixed in spec).
 
 [Anything a build phase did differently from what the spec/plan predicted, and whether
 it was accepted, and by whom.]
+- Live round-trip (2026-10-04): real events of an earlier scan (`DF50665A`) were replayed through the new mapper and imported into the running OpenCTI. Read back: `Autonomous-System 13335` created by SpiderFoot with external reference (scan id), and `belongs-to` from all 4 imported IPs (2 IPv4, 2 IPv6). A fresh end-to-end scan through the connector was run afterwards (see below).

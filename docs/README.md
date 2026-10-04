@@ -77,10 +77,20 @@ was skipped and why. Scans run one after another, so total time can approach
 | `AFFILIATE_INTERNET_NAME` | `domain-name` (score halved) | `related-to` → scanned domain |
 | `IP_ADDRESS`, `IPV6_ADDRESS` | `ipv4-addr` / `ipv6-addr` | `resolves-to` from the host that produced it, else the scanned domain |
 | `EMAILADDR` | `email-addr` | `related-to` → scanned domain |
+| `NETBLOCK_MEMBER` + `BGP_AS_MEMBER` (also IPv6) | `autonomous-system` (number only) | `belongs-to` from each imported IP to its AS |
 
 Every imported object carries `created_by` = Identity "SpiderFoot", a low score, and an
 external reference naming the scan id and SpiderFoot module. One Note per scan summarizes
 what was mapped, what was skipped and how many events were false positives.
+
+### Autonomous systems
+
+SpiderFoot reports each IP's netblock and each netblock's ASN. The connector chains them
+(IP → netblock → AS) and links every **imported** IP to an `autonomous-system` with
+`belongs-to`. It is a fact about the IP's network, not ownership by the target: for a site
+behind a CDN, every IP will point at the CDN's AS, which is how you spot shared hosting.
+AS objects are created only when linked to an imported IP. AS names, netblock/CIDR objects and
+any AS-to-domain link are not created. The scan Note lists the ASNs and how many IPs each covers.
 
 ### Reputation signals
 
