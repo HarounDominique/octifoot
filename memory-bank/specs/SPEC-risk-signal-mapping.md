@@ -1,6 +1,6 @@
 # SPEC: risk-signal-mapping
 
-Status: draft
+Status: approved
 Extends: [SPEC-spiderfoot-connector.md](SPEC-spiderfoot-connector.md) (mapper only; allowlist, config and scan flow unchanged)
 
 ## Objective
